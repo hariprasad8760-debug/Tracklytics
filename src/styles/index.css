@@ -1,0 +1,36 @@
+/**
+ * ============================================================================
+ * FILE: src/styles/index.css
+ * ============================================================================
+ * WHY THIS FILE IS NEEDED:
+ *   This is the primary stylesheet entry point for the Tracklytics application.
+ *   It imports Tailwind CSS directives, typography setup, reset styles, and our
+ *   custom aurora glass styling definitions.
+ *
+ * WHAT THIS FILE DOES:
+ *   1. Integrates Tailwind CSS engine.
+ *   2. Imports custom `aurora.css` liquid glass effects.
+ *   3. Imports custom `AuroraBackground.css` background animations.
+ *   4. Configures root body font, transparent background defaults, and text rendering.
+ *
+ * FOLDER RESPONSIBILITY (src/styles/):
+ *   Centralized styling system directory holding global styles, fonts, and utilities.
+ * ============================================================================
+ */
+
+@import "tailwindcss";
+@import "./aurora.css";
+@import "./AuroraBackground.css";
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: #050816;
+    color: #f8fafc;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+}

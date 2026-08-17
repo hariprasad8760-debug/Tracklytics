@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ============================================================================
+  FILE: backend/pom.xml
+  ============================================================================
+  WHY THIS FILE IS NEEDED:
+    POM stands for Project Object Model. In Apache Maven, pom.xml is the central 
+    configuration file for managing Java project metadata, compiler settings, 
+    plugin tools, and external libraries (dependencies).
+
+  WHAT THIS FILE DOES:
+    1. Defines Java 21 compiler configuration and Spring Boot 3.3.x parent starter.
+    2. Declares all required production dependencies (Web, Security, JPA, MySQL, Validation, JWT).
+    3. Configures Maven build plugins for packaging executable Spring Boot JAR files.
+
+  DEPENDENCY BREAKDOWN & EXPLANATION FOR BEGINNERS:
+    - spring-boot-starter-parent: Provides default dependency versions and plugin management.
+    - spring-boot-starter-web: Includes Tomcat web server, Spring MVC, and REST Controllers.
+    - spring-boot-starter-data-jpa: Integrates Hibernate ORM for mapping Java objects to MySQL database tables.
+    - mysql-connector-j: The JDBC database driver enabling Java to communicate with MySQL Server.
+    - spring-boot-starter-validation: Provides Jakarta Bean Validation annotations (@NotNull, @Email, @Size).
+    - spring-boot-starter-security: Spring Security framework for authentication, password hashing, and role checks.
+    - jjwt (api, impl, jackson): Java JWT library for creating and parsing JSON Web Tokens.
+    - lombok: Reduces Java boilerplate code by generating getters, setters, constructors, and builders automatically.
+    - modelmapper: Utility library for mapping Entity objects to DTOs and vice versa.
+    - springdoc-openapi-starter-webmvc-ui: Generates interactive Swagger / OpenAPI 3 documentation automatically.
+  ============================================================================
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Spring Boot Parent Starter -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.2</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+    <!-- Project Coordinates -->
+    <groupId>com.tracklytics</groupId>
+    <artifactId>tracklytics-backend</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>tracklytics-backend</name>
+    <description>Tracklytics - Smart Expense &amp; Study Analytics System Backend REST API</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <lombok.version>1.18.46</lombok.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <modelmapper.version>3.2.0</modelmapper.version>
+        <springdoc.version>2.5.0</springdoc.version>
+    </properties>
+
+    <dependencies>
+        <!-- 1. Spring Web Starter: REST APIs & Embedded Tomcat Web Server -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- 2. Spring Data JPA: Hibernate ORM & Database Repositories -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- 3. MySQL Database Connector Driver -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.3.0</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- 4. Spring Security: Authentication & Authorization Framework -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- 5. Jakarta Validation: Request DTO Validation (@NotBlank, @Email, @Size) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- 6. JJWT (Java JWT) Libraries for Stateless Security Tokens -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- 7. Lombok: Eliminates Boilerplate Code (Getters, Setters, Constructors) -->
+        <!-- Version 1.18.46+ required for Java 25 compatibility -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- 8. ModelMapper: Converts Entities to DTOs and DTOs to Entities -->
+        <dependency>
+            <groupId>org.modelmapper</groupId>
+            <artifactId>modelmapper</artifactId>
+            <version>${modelmapper.version}</version>
+        </dependency>
+
+        <!-- 9. Springdoc OpenAPI / Swagger UI: Interactive API Documentation -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- 10. Spring Boot Starter Test: JUnit 5 & Mockito Testing Framework -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!-- Maven Build Configuration -->
+    <build>
+        <plugins>
+            <!-- Maven Compiler Plugin: Explicit Lombok Annotation Processor for Java 25 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <!-- Spring Boot Executable JAR Plugin -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
