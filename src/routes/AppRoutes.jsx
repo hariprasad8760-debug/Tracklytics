@@ -27,6 +27,7 @@ import AnalyticsPage from '../pages/analytics/AnalyticsPage';
 import CalendarPage from '../pages/calendar/CalendarPage';
 import ReportsPage from '../pages/reports/ReportsPage';
 import AuthPage from '../pages/auth/AuthPage';
+import SettingsPage from '../pages/settings/SettingsPage';
 
 export const AppRoutes = () => {
   return (
@@ -43,7 +44,7 @@ export const AppRoutes = () => {
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="auth" element={<AuthPage />} />
-        <Route path="settings" element={<AuthPage />} />
+        <Route path="settings" element={<SettingsPage />} />
 
         {/* Fallback Catch-All Route */}
         <Route path="*" element={<Navigate to="/" replace />} />

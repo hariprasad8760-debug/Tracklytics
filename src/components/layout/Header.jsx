@@ -20,11 +20,13 @@
 
 import React from 'react';
 import { useSidebar } from '../../context/SidebarContext';
-import { FiMenu, FiSearch, FiBell, FiPlus, FiZap } from 'react-icons/fi';
+import { useVoice } from '../../context/VoiceContext';
+import { FiMenu, FiSearch, FiBell, FiPlus, FiZap, FiMic } from 'react-icons/fi';
 import GlassButton from '../common/GlassButton';
 
 export const Header = ({ pageTitle = 'Dashboard' }) => {
   const { toggleMobile } = useSidebar();
+  const { isVoiceModeActive, isListening, wakeWord, activateVoiceMode } = useVoice();
 
   return (
     <header className="sticky top-4 z-30 mb-6 w-full">
@@ -71,10 +73,34 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
             New Record
           </GlassButton>
 
+          {/* Mic / Voice Activation Button */}
+          <button
+            onClick={activateVoiceMode}
+            title={`Say "${wakeWord}" or click to activate voice mode`}
+            className="relative p-2.5 rounded-2xl border transition-all duration-300"
+            style={{
+              background: isListening
+                ? 'rgba(139,92,246,0.2)'
+                : 'rgba(255,255,255,0.05)',
+              borderColor: isListening
+                ? 'rgba(139,92,246,0.5)'
+                : 'rgba(255,255,255,0.1)',
+              color: isListening ? '#c4b5fd' : '#94a3b8',
+              boxShadow: isListening ? '0 0 16px rgba(139,92,246,0.25)' : 'none',
+            }}
+          >
+            <FiMic className="w-4 h-4" />
+            {isListening && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+            )}
+            {isListening && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-400" />
+            )}
+          </button>
+
           {/* Notification Bell */}
           <button className="relative p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-colors">
             <FiBell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500 animate-ping" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
           </button>
 
