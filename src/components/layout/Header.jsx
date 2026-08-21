@@ -75,9 +75,9 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
 
           {/* Mic / Voice Activation Button */}
           <button
-            onClick={activateVoiceMode}
+            onClick={() => activateVoiceMode()}
             title={`Say "${wakeWord}" or click to activate voice mode`}
-            className="relative p-2.5 rounded-2xl border transition-all duration-300"
+            className="relative p-2.5 rounded-2xl border transition-all duration-300 cursor-pointer"
             style={{
               background: isListening
                 ? 'rgba(139,92,246,0.2)'

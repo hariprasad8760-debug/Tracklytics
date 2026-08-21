@@ -10,9 +10,9 @@
  * WHAT THIS FILE DOES:
  *   1. Stores wakeWord (read from localStorage, default "MAPLA")
  *   2. Stores isVoiceModeActive — whether the popup is visible and listening
- *   3. Stores transcript — live speech-to-text text
+ *   3. Stores transcript — live speech-to-text string
  *   4. Stores micPermission — 'unknown' | 'granted' | 'denied'
- *   5. Exposes activateVoiceMode(), deactivateVoiceMode(), updateWakeWord()
+ *   5. Exposes activateVoiceMode(initialText), deactivateVoiceMode(), updateWakeWord()
  * ============================================================================
  */
 
@@ -45,7 +45,7 @@ export const VoiceProvider = ({ children }) => {
   // Whether the listening popup is open
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(false);
 
-  // Live speech transcript shown in popup
+  // Live speech transcript shown in popup (guaranteed string)
   const [transcript, setTranscript] = useState('');
 
   // Microphone permission state
@@ -55,9 +55,12 @@ export const VoiceProvider = ({ children }) => {
   const [isListening, setIsListening] = useState(false);
 
   // Activate Voice Mode (called when wake word detected or mic button clicked)
-  const activateVoiceMode = useCallback(() => {
+  // Safely sanitizes parameter to prevent React synthetic events from being stored as string
+  const activateVoiceMode = useCallback((initialText = '') => {
+    const cleanText = typeof initialText === 'string' ? initialText : '';
     setIsVoiceModeActive(true);
-    setTranscript('');
+    setIsListening(true);
+    setTranscript(cleanText);
   }, []);
 
   // Deactivate Voice Mode (close popup, stop listening)
@@ -69,7 +72,8 @@ export const VoiceProvider = ({ children }) => {
 
   // Update transcript from speech recognition
   const updateTranscript = useCallback((text) => {
-    setTranscript(text);
+    const cleanText = typeof text === 'string' ? text : '';
+    setTranscript(cleanText);
   }, []);
 
   // Change wake word and persist to localStorage

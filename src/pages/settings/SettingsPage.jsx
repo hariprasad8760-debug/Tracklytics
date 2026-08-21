@@ -4,8 +4,8 @@
  * ============================================================================
  * WHY THIS FILE IS NEEDED:
  *   Provides the Settings hub for the application. Currently contains the
- *   Voice Assistant configuration section for changing the wake word.
- *   Designed to be extended later with profile settings, theme, notifications, etc.
+ *   Voice Assistant configuration section for changing the wake word and
+ *   a complete reference of all supported Voice Navigation Commands.
  * ============================================================================
  */
 
@@ -14,10 +14,53 @@ import GlassCard from '../../components/common/GlassCard';
 import GlassButton from '../../components/common/GlassButton';
 import { useVoice } from '../../context/VoiceContext';
 import {
-  FiMic, FiMicOff, FiCheck, FiEdit2, FiAlertCircle, FiZap
+  FiMic, FiCheck, FiEdit2, FiAlertCircle, FiZap, FiCompass, FiCornerDownLeft
 } from 'react-icons/fi';
 
 const PRESET_WORDS = ['MAPLA', 'TRACKLYTICS', 'ZENO', 'NOVA', 'HEY TRACK'];
+
+const SUPPORTED_COMMANDS = [
+  {
+    destination: 'Dashboard / Home',
+    path: '/',
+    phrases: ['“Go to dashboard”', '“Open home”', '“Take me to overview”', '“Show dashboard”'],
+  },
+  {
+    destination: 'Expenses',
+    path: '/expense',
+    phrases: ['“Open expenses”', '“Take me to expenses”', '“Show my expenses”', '“Open expense section”'],
+  },
+  {
+    destination: 'Study Tracker',
+    path: '/study',
+    phrases: ['“Open study”', '“Go to study tracker”', '“Show focus timer”', '“Open goals”'],
+  },
+  {
+    destination: 'Analytics',
+    path: '/analytics',
+    phrases: ['“Show analytics”', '“Open analytics”', '“View analytics”', '“Show charts”'],
+  },
+  {
+    destination: 'Calendar',
+    path: '/calendar',
+    phrases: ['“Open calendar”', '“Show my schedule”', '“Go to calendar”', '“Open planner”'],
+  },
+  {
+    destination: 'Reports',
+    path: '/reports',
+    phrases: ['“Open reports”', '“Show summary reports”', '“Download reports”', '“View reports”'],
+  },
+  {
+    destination: 'Settings',
+    path: '/settings',
+    phrases: ['“Open settings”', '“Go to preferences”', '“Voice settings”', '“Show config”'],
+  },
+  {
+    destination: 'Previous Page',
+    path: 'BACK',
+    phrases: ['“Go back”', '“Previous page”', '“Return”', '“Back”'],
+  },
+];
 
 export const SettingsPage = () => {
   const {
@@ -65,8 +108,8 @@ export const SettingsPage = () => {
             <FiMic className="w-5 h-5 text-purple-400" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Voice Assistant</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Wake word detection and voice activation settings</p>
+            <h3 className="text-base font-bold text-white">Voice Assistant & Wake Word</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Wake word detection and voice navigation settings</p>
           </div>
           <div className="ml-auto">
             <span
@@ -101,7 +144,7 @@ export const SettingsPage = () => {
             <div>
               <p className="text-sm font-semibold text-white">Enable Wake Word Detection</p>
               <p className="text-xs text-slate-400 mt-0.5">
-                Continuously listen for <span className="text-purple-400 font-bold">"{wakeWord}"</span> to activate voice mode
+                Continuously listen for <span className="text-purple-400 font-bold">"{wakeWord}"</span> to activate voice navigation
               </p>
             </div>
             {/* Toggle switch */}
@@ -138,7 +181,7 @@ export const SettingsPage = () => {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 transition-all"
                 >
                   <FiEdit2 className="w-3 h-3" />
-                  Change
+                  Change Wake Word
                 </button>
               )}
             </div>
@@ -157,7 +200,7 @@ export const SettingsPage = () => {
                   {wakeWord}
                 </div>
                 {saved && (
-                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold animate-in fade-in duration-200">
                     <FiCheck className="w-3.5 h-3.5" /> Saved!
                   </span>
                 )}
@@ -213,28 +256,70 @@ export const SettingsPage = () => {
           {/* Test button */}
           <div className="pt-2 border-t border-white/6 flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">Test Voice Assistant</p>
-              <p className="text-xs text-slate-400 mt-0.5">Open the voice popup manually to preview the interface</p>
+              <p className="text-sm font-semibold text-white">Test Voice Navigation</p>
+              <p className="text-xs text-slate-400 mt-0.5">Open the voice modal manually and say “Open Expenses” or “Show Analytics”</p>
             </div>
-            <GlassButton variant="glass" size="sm" icon={FiZap} onClick={activateVoiceMode}>
+            <GlassButton variant="glass" size="sm" icon={FiZap} onClick={() => activateVoiceMode()}>
               Test Now
             </GlassButton>
           </div>
         </div>
       </GlassCard>
 
-      {/* How it works */}
+      {/* ── SUPPORTED VOICE NAVIGATION COMMANDS CARD ─────────────────────── */}
+      <GlassCard>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
+            <FiCompass className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">Supported Voice Navigation Commands</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Speak any of these natural commands after saying <span className="text-purple-300 font-bold">"{wakeWord}"</span></p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {SUPPORTED_COMMANDS.map((cmd) => (
+            <div
+              key={cmd.destination}
+              className="p-4 rounded-2xl bg-white/4 border border-white/6 space-y-2 hover:border-purple-500/30 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-white flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                  {cmd.destination}
+                </span>
+                <span className="text-[10px] font-mono text-purple-300 px-2 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20">
+                  {cmd.path}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {cmd.phrases.map((phrase) => (
+                  <span
+                    key={phrase}
+                    className="text-[11px] text-slate-300 px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 font-mono"
+                  >
+                    {phrase}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
+
+      {/* ── HOW IT WORKS CARD ────────────────────────────────────────────── */}
       <GlassCard>
         <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-          <FiZap className="text-purple-400 w-4 h-4" /> How Voice Activation Works
+          <FiZap className="text-purple-400 w-4 h-4" /> Voice Navigation Flow
         </h3>
         <ol className="space-y-3">
           {[
-            { step: '01', text: `Say "${wakeWord}" clearly while the app is open.`, color: '#a78bfa' },
-            { step: '02', text: 'Voice Mode activates and the listening popup appears.', color: '#67e8f9' },
-            { step: '03', text: 'Speak naturally — your words appear in real time.', color: '#34d399' },
-            { step: '04', text: 'Say "Stop" or click Close when you\'re done.', color: '#f9a8d4' },
-          ].map(({ step, text, color }) => (
+            { step: '01', title: 'Wake Word', text: `Say "${wakeWord}" (or click the microphone icon).`, color: '#a78bfa' },
+            { step: '02', title: 'Voice Mode Activates', text: 'The liquid glass listening popup appears with glowing waveform.', color: '#67e8f9' },
+            { step: '03', title: 'Speak Command', text: 'Say "Open Expenses", "Show Analytics", "Go to Calendar", or "Go Back".', color: '#34d399' },
+            { step: '04', title: 'Voice & Visual Feedback', text: 'Assistant confirms ("Opening Expenses.") and instantly navigates to the page.', color: '#f9a8d4' },
+          ].map(({ step, title, text, color }) => (
             <li key={step} className="flex items-start gap-3">
               <span
                 className="shrink-0 w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold"
@@ -242,13 +327,13 @@ export const SettingsPage = () => {
               >
                 {step}
               </span>
-              <p className="text-sm text-slate-300 mt-1">{text}</p>
+              <div>
+                <p className="text-xs font-bold text-white">{title}</p>
+                <p className="text-xs text-slate-300 mt-0.5">{text}</p>
+              </div>
             </li>
           ))}
         </ol>
-        <p className="mt-4 pt-4 border-t border-white/6 text-xs text-slate-500">
-          Voice commands for adding expenses, logging study sessions, and AI analytics will be connected in the next update.
-        </p>
       </GlassCard>
     </div>
   );
