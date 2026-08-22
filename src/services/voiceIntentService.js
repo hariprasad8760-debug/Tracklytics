@@ -242,50 +242,8 @@ export function parseVoiceIntent(rawTranscript, wakeWord = 'MAPLA') {
 }
 
 /**
- * Text-to-Speech Voice Feedback Output using Web SpeechSynthesis
- *
- * @param {string} text - The spoken feedback text (e.g. "Opening Expenses.")
- * @param {Function} [onEnd] - Optional callback after speech ends
+ * Text-to-Speech Voice Feedback — now powered by Luna (sweet female voice).
+ * Re-exported from lunaVoiceService to maintain backward compatibility.
  */
-export function speakVoiceFeedback(text, onEnd) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    if (onEnd) onEnd();
-    return;
-  }
+export { speakVoiceFeedback } from './lunaVoiceService';
 
-  try {
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.1; // Fast, responsive assistant pace
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    utterance.lang = 'en-US';
-
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(
-      (v) =>
-        v.lang.startsWith('en') &&
-        (v.name.includes('Google') ||
-          v.name.includes('Natural') ||
-          v.name.includes('Samantha') ||
-          v.name.includes('Jenny') ||
-          v.name.includes('Guy') ||
-          v.name.includes('Aria') ||
-          v.default)
-    );
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-    }
-
-    if (onEnd) {
-      utterance.onend = () => onEnd();
-      utterance.onerror = () => onEnd();
-    }
-
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.warn('[Voice Assistant] TTS feedback note:', err);
-    if (onEnd) onEnd();
-  }
-}
