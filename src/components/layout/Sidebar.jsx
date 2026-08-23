@@ -27,13 +27,15 @@ export const Sidebar = () => {
         <nav className="flex flex-col gap-3.5 items-center w-full">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
+            const isCalendar = item.id === 'calendar';
+
             return (
               <NavLink
                 key={item.id}
                 to={item.path}
                 title={item.label}
                 className={({ isActive }) =>
-                  `w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                  `w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 relative ${
                     isActive
                       ? 'bg-white/20 text-white border border-white/25 shadow-md shadow-purple-950/50 scale-105'
                       : 'text-slate-400 hover:text-white hover:bg-white/10'
@@ -41,6 +43,9 @@ export const Sidebar = () => {
                 }
               >
                 <Icon className="w-4 h-4" />
+                {isCalendar && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-slate-900 animate-pulse" />
+                )}
               </NavLink>
             );
           })}
