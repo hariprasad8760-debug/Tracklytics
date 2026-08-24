@@ -3,32 +3,27 @@
  * FILE: src/hooks/useVoiceAssistant.js
  * ============================================================================
  * WHY THIS FILE IS NEEDED:
- *   Luna — Tracklytics' persistent voice AI.
+ *   High-Performance, Low-Latency Voice Assistant Orchestrator.
  *
- * BEHAVIOURS:
- *   1. On first click/gesture: starts background wake-word listener.
- *   2. When "MAPLA" is detected:
- *        a. Plays greeting: "Hello Hari! I'm Luna. How can I help you today?"
- *        b. Opens the Voice Popup (modal)
- *        c. Starts active transcript listener
- *   3. When popup is closed:
- *        a. Active listener stops
- *        b. Background wake-word listener IMMEDIATELY restarts
- *        c. Luna stays alive for the rest of the session — perpetually listening
- *   4. All SpeechRecognition calls are wrapped in try-catch — 100% crash-proof.
+ * BEHAVIORS:
+ *   1. Background wake-word detection for "MAPLA" (continuous, crash-proof).
+ *   2. Instant activation with Web Audio futuristic chime.
+ *   3. Real-time speech streaming into Voice Floating Bar.
+ *   4. Fast <1s wake response, zero robotic speech delays.
+ *   5. Self-restarting listener across page navigations.
  * ============================================================================
  */
 
 import { useEffect, useRef, useCallback } from 'react';
 import { useVoice } from '../context/VoiceContext';
-import { lunaGreet } from '../services/lunaVoiceService';
+import { playActivationChime } from '../services/voiceFeedbackService';
 
 const SpeechRecognitionAPI =
   typeof window !== 'undefined'
     ? window.SpeechRecognition || window.webkitSpeechRecognition || null
     : null;
 
-// Comprehensive phonetic & STT variations for "MAPLA"
+// Phonetic & STT variations for "MAPLA"
 const MAPLA_VARIATIONS = [
   'MAPLA', 'MAAPLA', 'MAPLE', 'MAP LA', 'MAP-LA', 'MOPLA', 'MOBLA',
   'MARPLE', 'MATLA', 'MATHLA', 'MAFLA', 'MABLA', 'MAP L', 'MAPLE A',
@@ -83,24 +78,6 @@ function extractTrailingCommand(spokenText, configuredWakeWord) {
   return '';
 }
 
-/**
- * Reads the user's first name from localStorage (set in AuthPage/profile settings).
- * Falls back gracefully to 'there' if not found.
- */
-export function getUsername() {
-  try {
-    const raw = localStorage.getItem('tracklytics_user_profile');
-    if (!raw) return 'there';
-    const profile = JSON.parse(raw);
-    // Extract first name from fullName (e.g. "Hari Prasath" → "Hari")
-    const fullName = (profile.fullName || '').trim();
-    const firstName = fullName.split(' ')[0] || 'there';
-    return firstName;
-  } catch {
-    return 'there';
-  }
-}
-
 export const useVoiceAssistant = () => {
   const {
     wakeWord,
@@ -114,7 +91,7 @@ export const useVoiceAssistant = () => {
     updateTranscript,
   } = useVoice();
 
-  // Mirror all context values in stable refs
+  // Stable refs for context values
   const wakeWordRef = useRef(wakeWord);
   wakeWordRef.current = wakeWord;
 
@@ -136,7 +113,7 @@ export const useVoiceAssistant = () => {
   const updateTranscriptRef = useRef(updateTranscript);
   updateTranscriptRef.current = updateTranscript;
 
-  // Recognition instances and lifecycle flags
+  // Recognition references
   const backgroundRecRef = useRef(null);
   const activeRecRef = useRef(null);
   const isWatcherRunningRef = useRef(false);
@@ -183,13 +160,13 @@ export const useVoiceAssistant = () => {
   }, []);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // START BACKGROUND WATCHER (persistent, self-restarting)
+  // START BACKGROUND WATCHER (continuous wake word listener)
   // ─────────────────────────────────────────────────────────────────────────
   const startBackgroundWatcher = useCallback(() => {
     if (!SpeechRecognitionAPI || !wakeWordEnabledRef.current || isVoiceModeActiveRef.current) {
       return;
     }
-    if (isWatcherRunningRef.current) return; // Already running
+    if (isWatcherRunningRef.current) return;
 
     isWatcherRunningRef.current = true;
 
@@ -211,21 +188,19 @@ export const useVoiceAssistant = () => {
 
             if (matchesWakeWord(spoken, wakeWordRef.current)) {
               const now = Date.now();
-              if (now - lastTriggerTimeRef.current > 1500) {
+              if (now - lastTriggerTimeRef.current > 1200) {
                 lastTriggerTimeRef.current = now;
 
                 const trailingCommand = extractTrailingCommand(spoken, wakeWordRef.current);
-                console.log(`[Luna] Wake word triggered! Spoken: "${spoken}", Trailing: "${trailingCommand}"`);
 
-                // 1. Stop background watcher before greeting
+                // Stop watcher immediately
                 stopBackgroundWatcher();
 
-                // 2. Greet user as Luna (sweet female voice), then open popup
-                lunaGreet(getUsername(), () => {
-                  // After greeting finishes, open the voice popup
-                  activateVoiceModeRef.current(trailingCommand);
-                });
+                // Play high-tech activation chime
+                playActivationChime();
 
+                // Instantly open voice bar with zero delay
+                activateVoiceModeRef.current(trailingCommand);
                 return;
               }
             }
@@ -239,23 +214,20 @@ export const useVoiceAssistant = () => {
           isWatcherRunningRef.current = false;
           return;
         }
-        // Other errors (no-speech, aborted) — let onend restart it
       };
 
       rec.onend = () => {
-        // Key: self-restart as long as voice popup is not open
         if (isWatcherRunningRef.current && wakeWordEnabledRef.current && !isVoiceModeActiveRef.current) {
           restartTimerRef.current = setTimeout(() => {
             if (isWatcherRunningRef.current && !isVoiceModeActiveRef.current) {
               try {
                 rec.start();
               } catch {
-                // rec is dead, spawn fresh one
                 isWatcherRunningRef.current = false;
                 startBackgroundWatcher();
               }
             }
-          }, 200);
+          }, 180);
         }
       };
 
@@ -267,7 +239,7 @@ export const useVoiceAssistant = () => {
   }, [stopBackgroundWatcher]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // START ACTIVE LISTENER (streams live transcript into popup)
+  // START ACTIVE LISTENER (real-time stream into floating bar)
   // ─────────────────────────────────────────────────────────────────────────
   const startActiveListener = useCallback(() => {
     if (!SpeechRecognitionAPI) return;
@@ -289,8 +261,6 @@ export const useVoiceAssistant = () => {
       };
 
       rec.onresult = (event) => {
-        // Only capture the current speech session — the most recent interim/final chunk.
-        // This prevents transcript from growing forever and keeps each command fresh.
         let currentText = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           currentText += event.results[i][0].transcript + ' ';
@@ -320,22 +290,20 @@ export const useVoiceAssistant = () => {
   }, [stopActiveListener]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // EFFECT: Mode transitions — popup open ↔ background listening
+  // EFFECT: Mode transitions
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!SpeechRecognitionAPI) return;
 
     if (isVoiceModeActive) {
-      // Popup just opened — start active listener
       stopBackgroundWatcher();
       startActiveListener();
     } else {
-      // Popup closed — stop active listener, IMMEDIATELY resume background watching
       stopActiveListener();
       if (wakeWordEnabled) {
         const timer = setTimeout(() => {
           startBackgroundWatcher();
-        }, 150);
+        }, 120);
         return () => clearTimeout(timer);
       }
     }
@@ -343,8 +311,6 @@ export const useVoiceAssistant = () => {
 
   // ─────────────────────────────────────────────────────────────────────────
   // EFFECT: User Gesture Kickstart
-  // Browsers require a user interaction before mic access.
-  // After first click, Luna starts listening silently for the wake word.
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const handleGesture = () => {
@@ -362,9 +328,7 @@ export const useVoiceAssistant = () => {
     };
   }, [startBackgroundWatcher]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // CLEANUP on unmount (page close / navigation)
-  // ─────────────────────────────────────────────────────────────────────────
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopBackgroundWatcher();

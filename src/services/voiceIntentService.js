@@ -242,8 +242,7 @@ export function parseVoiceIntent(rawTranscript, wakeWord = 'MAPLA') {
 }
 
 /**
- * Text-to-Speech Voice Feedback — now powered by Luna (sweet female voice).
- * Re-exported from lunaVoiceService to maintain backward compatibility.
+ * Text-to-Speech Voice Feedback — powered by natural voice assistant engine.
  */
-export { speakVoiceFeedback } from './lunaVoiceService';
+export { speakVoiceFeedback } from './voiceFeedbackService';
 
