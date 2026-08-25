@@ -2,31 +2,51 @@
  * ============================================================================
  * FILE: src/components/layout/Header.jsx
  * ============================================================================
- * WHY THIS FILE IS NEEDED:
- *   The top header bar provides context for the current screen, global search, 
- *   quick action buttons, user profile pill, and mobile sidebar hamburger menu.
+ * Top header bar with page title, global search, notification bell,
+ * voice activation mic button, and user profile pill.
  *
- * WHAT THIS FILE DOES:
- *   1. Displays current section title.
- *   2. Provides a stylized glass search input box with `⌘K` shortcut pill.
- *   3. Includes notification bell with unread indicator pulse dot.
- *   4. Displays user avatar pill with status indicator.
- *   5. Connects with `useSidebar` context for mobile drawer toggle.
- *
- * FOLDER RESPONSIBILITY (src/components/layout/):
- *   Houses top-level layout region components.
+ * MIC BUTTON BEHAVIOR:
+ *   - Click → instantly enters voice conversation mode (no wake word needed).
+ *   - When background watcher is active (idle state), shows a small green dot.
+ *   - When voice mode is active (listening/speaking), glows purple.
  * ============================================================================
  */
 
 import React from 'react';
 import { useSidebar } from '../../context/SidebarContext';
 import { useVoice } from '../../context/VoiceContext';
-import { FiMenu, FiSearch, FiBell, FiPlus, FiZap, FiMic } from 'react-icons/fi';
+import { FiMenu, FiSearch, FiBell, FiPlus, FiZap, FiMic, FiMicOff } from 'react-icons/fi';
 import GlassButton from '../common/GlassButton';
 
 export const Header = ({ pageTitle = 'Dashboard' }) => {
   const { toggleMobile } = useSidebar();
-  const { isVoiceModeActive, isListening, wakeWord, activateVoiceMode } = useVoice();
+  const {
+    isVoiceModeActive,
+    isListening,
+    conversationState,
+    wakeWord,
+    micPermission,
+    activateDirectly,
+    deactivateVoiceMode,
+  } = useVoice();
+
+  const isSpeaking = conversationState === 'ASSISTANT_RESPONDING';
+  const isProcessing = conversationState === 'PROCESSING';
+  const isActive = isListening || isSpeaking || isProcessing;
+
+  const handleMicClick = () => {
+    if (isVoiceModeActive) {
+      // If already in voice mode, clicking mic ends the session
+      deactivateVoiceMode();
+    } else {
+      // Directly activate — no wake word needed
+      activateDirectly();
+    }
+  };
+
+  const micLabel = isVoiceModeActive
+    ? 'Click to end voice session'
+    : `Click to activate voice · or say "${wakeWord}"`;
 
   return (
     <header className="sticky top-4 z-30 mb-6 w-full">
@@ -73,30 +93,63 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
             New Record
           </GlassButton>
 
-          {/* Mic / Voice Activation Button */}
+          {/* ─── Mic / Voice Activation Button ─── */}
           <button
-            onClick={() => activateVoiceMode()}
-            title={`Say "${wakeWord}" or click to activate voice mode`}
+            onClick={handleMicClick}
+            title={micLabel}
             className="relative p-2.5 rounded-2xl border transition-all duration-300 cursor-pointer"
             style={{
-              background: isListening
+              background: isActive
                 ? 'rgba(139,92,246,0.2)'
-                : 'rgba(255,255,255,0.05)',
-              borderColor: isListening
-                ? 'rgba(139,92,246,0.5)'
-                : 'rgba(255,255,255,0.1)',
-              color: isListening ? '#c4b5fd' : '#94a3b8',
-              boxShadow: isListening ? '0 0 16px rgba(139,92,246,0.25)' : 'none',
+                : isVoiceModeActive
+                  ? 'rgba(139,92,246,0.1)'
+                  : 'rgba(255,255,255,0.05)',
+              borderColor: isActive
+                ? 'rgba(139,92,246,0.6)'
+                : isVoiceModeActive
+                  ? 'rgba(139,92,246,0.35)'
+                  : 'rgba(255,255,255,0.1)',
+              color: isActive ? '#c4b5fd' : isVoiceModeActive ? '#a78bfa' : '#94a3b8',
+              boxShadow: isActive
+                ? '0 0 18px rgba(139,92,246,0.35)'
+                : 'none',
             }}
           >
-            <FiMic className="w-4 h-4" />
-            {isListening && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+            {micPermission === 'denied'
+              ? <FiMicOff className="w-4 h-4 text-red-400" />
+              : <FiMic className="w-4 h-4" />
+            }
+
+            {/* Pulsing ring when actively listening / speaking */}
+            {isActive && (
+              <span className="absolute inset-0 rounded-2xl border border-purple-400/50 animate-ping pointer-events-none" />
             )}
-            {isListening && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-400" />
+
+            {/* Green dot: background watcher is running (IDLE state) */}
+            {!isVoiceModeActive && micPermission === 'granted' && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 border border-black/40" title="Wake word listening" />
+            )}
+
+            {/* Purple dot: voice mode active but not yet speaking */}
+            {isVoiceModeActive && !isActive && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-400" />
             )}
           </button>
+
+          {/* Wake word hint pill — shows only when mic is idle */}
+          {!isVoiceModeActive && micPermission === 'granted' && (
+            <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-slate-400 bg-white/5 border border-white/10 px-2 py-1 rounded-full">
+              <FiMic className="w-2.5 h-2.5 text-emerald-400" />
+              Say «{wakeWord}»
+            </span>
+          )}
+
+          {/* Mic denied warning */}
+          {micPermission === 'denied' && (
+            <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded-full">
+              <FiMicOff className="w-2.5 h-2.5" /> Mic blocked
+            </span>
+          )}
 
           {/* Notification Bell */}
           <button className="relative p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-colors">

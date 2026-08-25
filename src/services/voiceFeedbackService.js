@@ -8,19 +8,45 @@
  * DESIGN PRINCIPLES:
  *   1. Natural, human-like voice synthesis with normal human pitch (1.0).
  *   2. Instant Web Audio API futuristic chime on wake word activation.
- *   3. Crystal-clear navigation confirmations with responsive, natural pacing.
- *   4. Selects the highest quality natural/neural browser voices automatically.
+ *   3. Crystal-clear navigation and conversational confirmations with responsive pacing.
+ *   4. Supports customizable Voice Personas (Female, Male, Natural Assistant).
+ *   5. Clean onEnd / onError callback handling to allow continuous conversational loops.
  * ============================================================================
  */
 
-// Priority list for natural, high-fidelity neural assistant voices
+// Voice priority lists for different voice preferences
+const FEMALE_VOICE_NAMES = [
+  'Google UK English Female',
+  'Google US English',
+  'Microsoft Jenny Online (Natural)',
+  'Microsoft Aria Online (Natural)',
+  'Microsoft Zira',
+  'Samantha',
+  'Karen',
+  'Victoria',
+  'Zira',
+  'Jenny',
+  'Aria',
+];
+
+const MALE_VOICE_NAMES = [
+  'Google UK English Male',
+  'Microsoft Guy Online (Natural)',
+  'Microsoft David',
+  'Microsoft Mark',
+  'Daniel',
+  'Alex',
+  'David',
+  'Guy',
+];
+
 const NATURAL_VOICE_PRIORITY = [
   'Google US English',
   'Google UK English Female',
-  'Google UK English Male',
   'Microsoft Jenny Online (Natural)',
   'Microsoft Aria Online (Natural)',
   'Microsoft Guy Online (Natural)',
+  'Google UK English Male',
   'Microsoft Zira',
   'Microsoft David',
   'Samantha',
@@ -74,16 +100,22 @@ export function playActivationChime() {
 }
 
 /**
- * Finds the highest quality natural English voice available in the browser.
+ * Finds the highest quality voice available in the browser matching the user's preference.
+ *
+ * @param {'female' | 'male' | 'natural'} [voiceType='female']
  */
-export function getBestNaturalVoice() {
+export function getBestVoice(voiceType = 'female') {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
 
   const voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
 
-  // 1. Try matching priority natural names
-  for (const name of NATURAL_VOICE_PRIORITY) {
+  let searchList = NATURAL_VOICE_PRIORITY;
+  if (voiceType === 'female') searchList = FEMALE_VOICE_NAMES;
+  else if (voiceType === 'male') searchList = MALE_VOICE_NAMES;
+
+  // 1. Try matching preferred names
+  for (const name of searchList) {
     const found = voices.find(
       (v) => v.name.toLowerCase().includes(name.toLowerCase()) || v.lang.toLowerCase() === name.toLowerCase()
     );
@@ -100,15 +132,28 @@ export function getBestNaturalVoice() {
 /**
  * Speaks natural assistant feedback using Web SpeechSynthesis.
  *
- * @param {string} text - Spoken feedback (e.g. "Opening Expenses.")
+ * @param {string} text - Spoken feedback (e.g. "Sure. What is the amount?")
  * @param {object} [options]
- * @param {Function} [options.onEnd] - Callback after speaking
+ * @param {string} [options.voiceType='female'] - 'female' | 'male' | 'natural'
+ * @param {number} [options.rate=1.05]
+ * @param {number} [options.pitch=1.0]
+ * @param {number} [options.volume=1.0]
+ * @param {Function} [options.onEnd] - Callback when speech ends
  */
 export function speakNaturalVoice(text, options = {}) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
     if (options.onEnd) options.onEnd();
     return;
   }
+
+  let hasEnded = false;
+  const finish = () => {
+    if (hasEnded) return;
+    hasEnded = true;
+    if (options.onEnd) {
+      options.onEnd();
+    }
+  };
 
   const doSpeak = () => {
     try {
@@ -117,23 +162,31 @@ export function speakNaturalVoice(text, options = {}) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
       utterance.rate = options.rate ?? 1.05;   // Crisp, fast natural assistant pace
-      utterance.pitch = options.pitch ?? 1.0;  // 1.0 = Natural human pitch (no robotic distortion)
+      utterance.pitch = options.pitch ?? (options.voiceType === 'female' ? 1.05 : 1.0);
       utterance.volume = options.volume ?? 1.0;
 
-      const voice = getBestNaturalVoice();
+      const voice = getBestVoice(options.voiceType || 'female');
       if (voice) {
         utterance.voice = voice;
       }
 
-      if (options.onEnd) {
-        utterance.onend = () => options.onEnd();
-        utterance.onerror = () => options.onEnd();
-      }
+      utterance.onend = finish;
+      utterance.onerror = finish;
 
       window.speechSynthesis.speak(utterance);
+
+      // Failsafe timeout in case browser TTS onend hangs
+      const approxDurationMs = Math.max(1500, (text.length / 15) * 1000 + 1000);
+      setTimeout(() => {
+        if (!hasEnded && window.speechSynthesis.speaking) {
+          // Still speaking normally
+        } else if (!hasEnded) {
+          finish();
+        }
+      }, approxDurationMs + 1000);
     } catch (err) {
       console.warn('[Voice Assistant] TTS warning:', err);
-      if (options.onEnd) options.onEnd();
+      finish();
     }
   };
 
@@ -145,20 +198,20 @@ export function speakNaturalVoice(text, options = {}) {
       window.speechSynthesis.onvoiceschanged = null;
       doSpeak();
     };
-    setTimeout(doSpeak, 300);
+    setTimeout(doSpeak, 250);
   }
 }
 
 /**
  * Re-exported voice feedback wrapper
  */
-export function speakVoiceFeedback(text, onEnd) {
-  speakNaturalVoice(text, { onEnd });
+export function speakVoiceFeedback(text, onEnd, voiceType = 'female') {
+  speakNaturalVoice(text, { onEnd, voiceType });
 }
 
 export default {
   playActivationChime,
   speakNaturalVoice,
   speakVoiceFeedback,
-  getBestNaturalVoice,
+  getBestVoice,
 };

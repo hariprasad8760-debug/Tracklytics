@@ -3,111 +3,233 @@
  * FILE: src/context/VoiceContext.jsx
  * ============================================================================
  * WHY THIS FILE IS NEEDED:
- *   Provides global Voice Assistant state so any component (Header mic button,
- *   settings page, wake word detector) can read and control voice mode without
- *   prop drilling.
+ *   Central state store for Tracklytics Continuous Conversational Voice Assistant.
  *
- * WHAT THIS FILE DOES:
- *   1. Stores wakeWord (read from localStorage, default "MAPLA")
- *   2. Stores isVoiceModeActive — whether the popup is visible and listening
- *   3. Stores transcript — live speech-to-text string
- *   4. Stores micPermission — 'unknown' | 'granted' | 'denied'
- *   5. Exposes activateVoiceMode(initialText), deactivateVoiceMode(), updateWakeWord()
+ * WHAT THIS FILE STORES:
+ *   1. Conversation States: 'IDLE' | 'WAKE_WORD_DETECTED' | 'LISTENING' | 'PROCESSING' | 'ASSISTANT_RESPONDING'
+ *   2. Active Multi-Turn Dialog Context (activeFlow)
+ *   3. Last spoken Assistant Response text
+ *   4. Configuration & User Preferences:
+ *      - Wake Word (default: 'MAPLA')
+ *      - Continuous Conversation Mode (default: true)
+ *      - Inactivity Timeout in seconds (default: 60s)
+ *      - Assistant Voice Persona ('female' | 'male' | 'natural')
+ *      - Wake Word Detection (default: true)
  * ============================================================================
  */
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 
 const VoiceContext = createContext(null);
 
-const STORAGE_KEY = 'tracklytics_wake_word';
+const STORAGE_KEYS = {
+  WAKE_WORD: 'tracklytics_wake_word',
+  WAKE_ENABLED: 'tracklytics_wake_enabled',
+  CONTINUOUS_MODE: 'tracklytics_continuous_voice',
+  INACTIVITY_SEC: 'tracklytics_voice_inactivity_sec',
+  ASSISTANT_VOICE: 'tracklytics_assistant_voice',
+};
+
 const DEFAULT_WAKE_WORD = 'MAPLA';
+const DEFAULT_INACTIVITY_SEC = 60;
 
 export const VoiceProvider = ({ children }) => {
-  // Read wake word from localStorage on first render
+  // ── 1. Preferences & Settings ─────────────────────────────────────────────
+
+  // Wake Word
   const [wakeWord, setWakeWord] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) || DEFAULT_WAKE_WORD;
+      return localStorage.getItem(STORAGE_KEYS.WAKE_WORD) || DEFAULT_WAKE_WORD;
     } catch {
       return DEFAULT_WAKE_WORD;
     }
   });
 
-  // Whether wake word detection is enabled
+  // Wake Word Detection Toggle
   const [wakeWordEnabled, setWakeWordEnabled] = useState(() => {
     try {
-      return localStorage.getItem('tracklytics_wake_enabled') !== 'false';
+      return localStorage.getItem(STORAGE_KEYS.WAKE_ENABLED) !== 'false';
     } catch {
       return true;
     }
   });
 
-  // Whether the listening popup is open
+  // Continuous Conversation Mode Toggle (Default: true)
+  const [continuousMode, setContinuousMode] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.CONTINUOUS_MODE) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  // Inactivity Timeout in Seconds (Default: 60s)
+  const [inactivityTimeoutSec, setInactivityTimeoutSec] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.INACTIVITY_SEC);
+      return stored ? parseInt(stored, 10) : DEFAULT_INACTIVITY_SEC;
+    } catch {
+      return DEFAULT_INACTIVITY_SEC;
+    }
+  });
+
+  // Assistant Voice Persona ('female' | 'male' | 'natural')
+  const [assistantVoice, setAssistantVoice] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.ASSISTANT_VOICE) || 'female';
+    } catch {
+      return 'female';
+    }
+  });
+
+  // ── 2. Live Conversation Runtime States ───────────────────────────────────
+
+  // 'IDLE' | 'WAKE_WORD_DETECTED' | 'LISTENING' | 'PROCESSING' | 'ASSISTANT_RESPONDING'
+  const [conversationState, setConversationState] = useState('IDLE');
+
+  // Whether the voice indicator is visible on screen
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(false);
 
-  // Live speech transcript shown in popup (guaranteed string)
+  // Live streaming speech transcript from mic
   const [transcript, setTranscript] = useState('');
 
-  // Microphone permission state
-  const [micPermission, setMicPermission] = useState('unknown'); // 'unknown' | 'granted' | 'denied'
+  // Active Multi-Turn Dialog Context (e.g. { type: 'ADD_EXPENSE', step: 'AWAITING_AMOUNT', data: {} })
+  const [activeFlow, setActiveFlow] = useState(null);
 
-  // Whether it is actively listening (recording audio)
-  const [isListening, setIsListening] = useState(false);
+  // Last message spoken by assistant
+  const [lastAssistantMessage, setLastAssistantMessage] = useState("I'm listening.");
 
-  // Activate Voice Mode (called when wake word detected or mic button clicked)
-  // Safely sanitizes parameter to prevent React synthetic events from being stored as string
-  const activateVoiceMode = useCallback((initialText = '') => {
+  // Microphone permission state ('unknown' | 'granted' | 'denied')
+  const [micPermission, setMicPermission] = useState('unknown');
+
+  // Ref to activateDirectly function (set by VoiceOrchestrator after hook mounts)
+  const activateDirectlyRef = useRef(null);
+  const setActivateDirectly = useCallback((fn) => {
+    activateDirectlyRef.current = fn;
+  }, []);
+
+  // ── 3. State Mutator Callbacks ────────────────────────────────────────────
+
+  // Activate Voice Conversation Mode
+  const activateVoiceMode = useCallback((initialText = '', initialGreeting = "I'm listening.") => {
     const cleanText = typeof initialText === 'string' ? initialText : '';
     setIsVoiceModeActive(true);
-    setIsListening(true);
+    setConversationState('LISTENING');
     setTranscript(cleanText);
+    setLastAssistantMessage(initialGreeting);
   }, []);
 
-  // Deactivate Voice Mode (close popup, stop listening)
+  // Deactivate Voice Mode (End Session)
   const deactivateVoiceMode = useCallback(() => {
     setIsVoiceModeActive(false);
+    setConversationState('IDLE');
     setTranscript('');
-    setIsListening(false);
+    setActiveFlow(null);
+    setLastAssistantMessage('');
   }, []);
 
-  // Update transcript from speech recognition
+  // Pending user command triggered manually (e.g. from chip click)
+  const [pendingCommand, setPendingCommand] = useState('');
+
+  const triggerCommand = useCallback((cmd) => {
+    if (cmd && typeof cmd === 'string') {
+      setPendingCommand(cmd);
+    }
+  }, []);
+
+  const clearPendingCommand = useCallback(() => {
+    setPendingCommand('');
+  }, []);
+
+  // Update live transcript string safely
   const updateTranscript = useCallback((text) => {
     const cleanText = typeof text === 'string' ? text : '';
     setTranscript(cleanText);
   }, []);
 
-  // Change wake word and persist to localStorage
+  // Update Wake Word
   const updateWakeWord = useCallback((newWord) => {
     const normalized = newWord.trim().toUpperCase();
     if (!normalized) return;
     setWakeWord(normalized);
     try {
-      localStorage.setItem(STORAGE_KEY, normalized);
+      localStorage.setItem(STORAGE_KEYS.WAKE_WORD, normalized);
     } catch { /* ignore */ }
   }, []);
 
-  // Toggle wake word detection on/off
+  // Toggle Wake Word Detection
   const toggleWakeWordEnabled = useCallback((val) => {
     setWakeWordEnabled(val);
     try {
-      localStorage.setItem('tracklytics_wake_enabled', String(val));
+      localStorage.setItem(STORAGE_KEYS.WAKE_ENABLED, String(val));
+    } catch { /* ignore */ }
+  }, []);
+
+  // Toggle Continuous Conversation Mode
+  const updateContinuousMode = useCallback((val) => {
+    setContinuousMode(val);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CONTINUOUS_MODE, String(val));
+    } catch { /* ignore */ }
+  }, []);
+
+  // Update Inactivity Timeout
+  const updateInactivityTimeoutSec = useCallback((sec) => {
+    const parsed = parseInt(sec, 10) || DEFAULT_INACTIVITY_SEC;
+    setInactivityTimeoutSec(parsed);
+    try {
+      localStorage.setItem(STORAGE_KEYS.INACTIVITY_SEC, String(parsed));
+    } catch { /* ignore */ }
+  }, []);
+
+  // Update Assistant Voice Persona
+  const updateAssistantVoice = useCallback((voice) => {
+    setAssistantVoice(voice);
+    try {
+      localStorage.setItem(STORAGE_KEYS.ASSISTANT_VOICE, voice);
     } catch { /* ignore */ }
   }, []);
 
   const value = {
+    // Preferences
     wakeWord,
     wakeWordEnabled,
+    continuousMode,
+    inactivityTimeoutSec,
+    assistantVoice,
+    updateWakeWord,
+    toggleWakeWordEnabled,
+    updateContinuousMode,
+    updateInactivityTimeoutSec,
+    updateAssistantVoice,
+
+    // Runtime state
+    conversationState,
     isVoiceModeActive,
     transcript,
+    activeFlow,
+    lastAssistantMessage,
     micPermission,
-    isListening,
+    pendingCommand,
+    setConversationState,
+    setIsVoiceModeActive,
+    setActiveFlow,
+    setLastAssistantMessage,
     setMicPermission,
-    setIsListening,
     activateVoiceMode,
     deactivateVoiceMode,
     updateTranscript,
-    updateWakeWord,
-    toggleWakeWordEnabled,
+    triggerCommand,
+    clearPendingCommand,
+
+    // Direct activation (set by VoiceOrchestrator after hook mounts)
+    activateDirectly: () => activateDirectlyRef.current && activateDirectlyRef.current(),
+    setActivateDirectly,
+
+    // Backward compatibility aliases
+    isListening: conversationState === 'LISTENING',
+    setIsListening: (val) => setConversationState(val ? 'LISTENING' : 'IDLE'),
+    wakeWordActive: !isVoiceModeActive, // background watcher is active when voice mode is off
   };
 
   return (
@@ -123,4 +245,4 @@ export const useVoice = () => {
   return ctx;
 };
 
-export default VoiceContext;
+export default VoiceProvider;

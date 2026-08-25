@@ -3,69 +3,68 @@
  * FILE: src/components/voice/VoicePopup.jsx
  * ============================================================================
  * WHY THIS FILE IS NEEDED:
- *   Sleek Floating Dynamic Island Voice Bar for Tracklytics.
+ *   Persistent Water Glass / Aurora Voice Assistant Conversation Indicator.
  *
- * DESIGN HIGHLIGHTS:
- *   - Non-blocking top-center floating sound capsule (HUD Dynamic Island).
- *   - Live multi-color gradient audio visualizer & live transcription stream.
- *   - Automatic 2.60s silence command processing with natural speech confirmation.
- *   - Instant destination chips & one-tap manual execute button.
- *   - Close via "exit", "close", "stop", Esc key, or click.
+ * FEATURES:
+ *   - Continuous conversation state badges (LISTENING / PROCESSING / SPEAKING).
+ *   - Live audio waveform and glowing state microphone.
+ *   - Assistant reply bubble with multi-turn dialog tracking.
+ *   - Real-time recognized user speech preview.
+ *   - Visible [ End Conversation ] button and quick suggestion pills.
  * ============================================================================
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import {
   FiMic,
   FiMicOff,
   FiX,
-  FiCheckCircle,
-  FiAlertCircle,
+  FiSquare,
   FiCompass,
   FiArrowRight,
   FiClock,
-  FiZap
+  FiVolume2,
+  FiZap,
+  FiHelpCircle
 } from 'react-icons/fi';
 import { useVoice } from '../../context/VoiceContext';
-import { parseVoiceIntent, speakVoiceFeedback } from '../../services/voiceIntentService';
 
-// Exactly 2.60 seconds of silence before executing command
-const SILENCE_TIMEOUT_MS = 2600;
+// Live Dynamic 14-Bar Equalizer
+const ConversationalWaveform = ({ state }) => {
+  const isListening = state === 'LISTENING';
+  const isSpeaking = state === 'ASSISTANT_RESPONDING';
+  const isProcessing = state === 'PROCESSING';
 
-// Exit keywords
-const EXIT_WORDS = ['exit', 'close', 'stop', 'quit', 'goodbye', 'bye', 'dismiss', 'cancel'];
-
-function isExitCommand(text) {
-  if (!text) return false;
-  const t = text.toLowerCase().trim();
-  return EXIT_WORDS.some((w) => t === w || t.includes(w));
-}
-
-// Mini 16-bar Dynamic Equalizer
-const MiniAudioVisualizer = ({ isListening, isSuccess }) => {
   return (
-    <div className="flex items-center gap-[2.5px] h-6 px-1" aria-hidden="true">
-      {Array.from({ length: 14 }).map((_, i) => (
+    <div className="flex items-center gap-[3px] h-7 px-1" aria-hidden="true">
+      {Array.from({ length: 16 }).map((_, i) => (
         <span
           key={i}
-          className="w-[2.5px] rounded-full transition-all"
+          className="w-[2.5px] rounded-full transition-all duration-200"
           style={{
-            background: isSuccess
-              ? 'linear-gradient(180deg, #34d399, #10b981)'
-              : 'linear-gradient(180deg, #06b6d4, #a855f7, #ec4899)',
-            height: isListening ? `${Math.max(6, (Math.sin(i * 0.8) + 1) * 10 + 4)}px` : '4px',
-            animation: isListening
-              ? `audioBarPulse ${0.5 + (i % 5) * 0.12}s ease-in-out infinite alternate`
+            background: isSpeaking
+              ? 'linear-gradient(180deg, #34d399, #06b6d4)'
+              : isProcessing
+                ? 'linear-gradient(180deg, #f59e0b, #ef4444)'
+                : 'linear-gradient(180deg, #06b6d4, #a855f7, #ec4899)',
+            height: isListening
+              ? `${Math.max(6, (Math.sin(i * 0.7) + 1) * 11 + 4)}px`
+              : isSpeaking
+                ? `${Math.max(8, (Math.cos(i * 0.9) + 1) * 10 + 6)}px`
+                : isProcessing
+                  ? '6px'
+                  : '4px',
+            animation: (isListening || isSpeaking)
+              ? `wavePulse ${0.45 + (i % 6) * 0.1}s ease-in-out infinite alternate`
               : 'none',
-            opacity: isListening ? 0.9 : 0.3,
+            opacity: (isListening || isSpeaking) ? 0.95 : 0.35,
           }}
         />
       ))}
       <style>{`
-        @keyframes audioBarPulse {
-          0%   { height: 4px; opacity: 0.4; }
-          100% { height: 22px; opacity: 1; }
+        @keyframes wavePulse {
+          0%   { height: 5px; opacity: 0.4; }
+          100% { height: 26px; opacity: 1; }
         }
       `}</style>
     </div>
@@ -73,334 +72,219 @@ const MiniAudioVisualizer = ({ isListening, isSuccess }) => {
 };
 
 export const VoicePopup = () => {
-  const navigate = useNavigate();
   const {
     isVoiceModeActive,
-    isListening,
+    conversationState,
     transcript,
-    micPermission,
+    lastAssistantMessage,
+    activeFlow,
     wakeWord,
+    micPermission,
     deactivateVoiceMode,
-    setIsListening,
-    updateTranscript,
+    triggerCommand,
   } = useVoice();
-
-  const [commandStatus, setCommandStatus] = useState(null); // null | { type: 'success'|'error', text: string }
-  const [isEvaluating, setIsEvaluating] = useState(false);
-
-  const executionLockRef = useRef(false);
-  const silenceTimerRef = useRef(null);
-  const currentTranscriptRef = useRef(transcript);
-  currentTranscriptRef.current = transcript;
-
-  // Clear timer helper
-  const clearSilenceTimer = useCallback(() => {
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-  }, []);
-
-  // Reset to active listening loop
-  const resetToListening = useCallback(() => {
-    clearSilenceTimer();
-    setCommandStatus(null);
-    setIsEvaluating(false);
-    executionLockRef.current = false;
-    updateTranscript('');
-    setIsListening(true);
-  }, [clearSilenceTimer, updateTranscript, setIsListening]);
-
-  // Execute spoken navigation command
-  const executeCommand = useCallback(
-    (textToParse) => {
-      if (executionLockRef.current || !textToParse?.trim()) return;
-
-      // Handle exit command
-      if (isExitCommand(textToParse)) {
-        executionLockRef.current = true;
-        clearSilenceTimer();
-        speakVoiceFeedback('Closing voice assistant.');
-        setTimeout(() => deactivateVoiceMode(), 700);
-        return;
-      }
-
-      const intent = parseVoiceIntent(textToParse, wakeWord);
-
-      if (intent.type === 'NAVIGATE') {
-        executionLockRef.current = true;
-        clearSilenceTimer();
-        setIsListening(false);
-        setIsEvaluating(false);
-
-        setCommandStatus({ type: 'success', text: intent.feedback });
-        speakVoiceFeedback(intent.feedback);
-
-        setTimeout(() => {
-          if (intent.target === 'BACK') navigate(-1);
-          else navigate(intent.target);
-
-          // Smoothly close after navigation completes
-          setTimeout(() => {
-            deactivateVoiceMode();
-          }, 650);
-        }, 600);
-      } else {
-        // Unknown command -> prompt user and reset to keep listening
-        clearSilenceTimer();
-        setIsEvaluating(false);
-        setCommandStatus({
-          type: 'error',
-          text: "Command not recognized. Say 'Expenses', 'Study', or 'Exit'.",
-        });
-        speakVoiceFeedback("I didn't understand that command. Please try again.");
-
-        setTimeout(() => resetToListening(), 2600);
-      }
-    },
-    [wakeWord, navigate, deactivateVoiceMode, setIsListening, clearSilenceTimer, resetToListening]
-  );
-
-  // Reset state on open/close
-  useEffect(() => {
-    if (isVoiceModeActive) {
-      setCommandStatus(null);
-      setIsEvaluating(false);
-      executionLockRef.current = false;
-
-      // Check if user spoke command in same breath as wake word
-      if (transcript?.trim()) {
-        const direct = parseVoiceIntent(transcript, wakeWord);
-        if (direct.type === 'NAVIGATE') executeCommand(transcript);
-      }
-    } else {
-      setCommandStatus(null);
-      setIsEvaluating(false);
-      executionLockRef.current = false;
-      clearSilenceTimer();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVoiceModeActive]);
-
-  // 2.60s Silence Timeout Handler
-  useEffect(() => {
-    if (!isVoiceModeActive || executionLockRef.current || !transcript?.trim()) {
-      setIsEvaluating(false);
-      return;
-    }
-
-    clearSilenceTimer();
-    setIsEvaluating(true);
-
-    silenceTimerRef.current = setTimeout(() => {
-      if (isVoiceModeActive && !executionLockRef.current && currentTranscriptRef.current?.trim()) {
-        executeCommand(currentTranscriptRef.current);
-      }
-    }, SILENCE_TIMEOUT_MS);
-
-    return () => clearSilenceTimer();
-  }, [transcript, isVoiceModeActive, executeCommand, clearSilenceTimer]);
-
-  // Escape key closes voice bar
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') deactivateVoiceMode();
-    };
-    if (isVoiceModeActive) window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isVoiceModeActive, deactivateVoiceMode]);
 
   if (!isVoiceModeActive) return null;
 
   const isDenied = micPermission === 'denied';
-  const isSuccess = commandStatus?.type === 'success';
-  const isError = commandStatus?.type === 'error';
+  const isListening = conversationState === 'LISTENING';
+  const isProcessing = conversationState === 'PROCESSING';
+  const isSpeaking = conversationState === 'ASSISTANT_RESPONDING';
 
-  // Manual Quick Destination Chip Click
-  const handleChipClick = (path, feedback) => {
-    if (executionLockRef.current) return;
-    executionLockRef.current = true;
-    clearSilenceTimer();
-    setIsListening(false);
-    setIsEvaluating(false);
-    setCommandStatus({ type: 'success', text: feedback });
-    speakVoiceFeedback(feedback);
-
-    setTimeout(() => {
-      if (path === 'BACK') navigate(-1);
-      else navigate(path);
-      setTimeout(() => deactivateVoiceMode(), 650);
-    }, 600);
-  };
-
-  // Immediate execute button
-  const handleExecuteNow = () => {
-    clearSilenceTimer();
-    setIsListening(false);
-    setIsEvaluating(false);
-    if (transcript?.trim()) executeCommand(transcript);
+  // Manual suggestion chip trigger
+  const handleQuickChip = (phrase) => {
+    triggerCommand(phrase);
   };
 
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[95vw] max-w-2xl px-2 animate-in slide-in-from-top-6 fade-in duration-300 pointer-events-auto">
-      {/* ── Floating Dynamic Sound Capsule ──────────────────────────────── */}
+      {/* ── Aurora Water-Glass Persistent Capsule ────────────────────────── */}
       <div
         className="relative rounded-3xl p-4 sm:p-5 border shadow-2xl backdrop-blur-2xl transition-all duration-300 overflow-hidden"
         style={{
-          background: isSuccess
-            ? 'linear-gradient(135deg, rgba(6, 44, 30, 0.95) 0%, rgba(10, 20, 16, 0.98) 100%)'
-            : isError
-              ? 'linear-gradient(135deg, rgba(50, 14, 24, 0.95) 0%, rgba(18, 8, 14, 0.98) 100%)'
-              : 'linear-gradient(135deg, rgba(16, 12, 38, 0.94) 0%, rgba(8, 6, 22, 0.98) 100%)',
-          borderColor: isSuccess
+          background: isSpeaking
+            ? 'linear-gradient(135deg, rgba(8, 38, 30, 0.96) 0%, rgba(10, 22, 20, 0.98) 100%)'
+            : isProcessing
+              ? 'linear-gradient(135deg, rgba(42, 20, 14, 0.96) 0%, rgba(18, 10, 12, 0.98) 100%)'
+              : 'linear-gradient(135deg, rgba(16, 12, 40, 0.96) 0%, rgba(8, 6, 26, 0.98) 100%)',
+          borderColor: isSpeaking
             ? 'rgba(52, 211, 153, 0.5)'
-            : isError
-              ? 'rgba(244, 63, 94, 0.5)'
-              : 'rgba(168, 85, 247, 0.45)',
-          boxShadow: isSuccess
-            ? '0 10px 40px rgba(52, 211, 153, 0.25), 0 0 0 1px rgba(52, 211, 153, 0.3)'
-            : '0 15px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(168, 85, 247, 0.25)',
+            : isProcessing
+              ? 'rgba(245, 158, 11, 0.5)'
+              : 'rgba(168, 85, 247, 0.5)',
+          boxShadow: isSpeaking
+            ? '0 15px 50px rgba(52, 211, 153, 0.25), 0 0 35px rgba(52, 211, 153, 0.15)'
+            : '0 18px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(168, 85, 247, 0.25)',
         }}
       >
-        {/* Subtle Ambient Light Bar */}
+        {/* Ambient Top Glow Aura */}
         <div
-          className="absolute -top-10 left-1/2 -translate-x-1/2 w-3/4 h-20 rounded-full blur-2xl pointer-events-none opacity-40"
+          className="absolute -top-12 left-1/2 -translate-x-1/2 w-4/5 h-24 rounded-full blur-3xl pointer-events-none opacity-40"
           style={{
-            background: isSuccess
+            background: isSpeaking
               ? 'radial-gradient(circle, #34d399 0%, transparent 70%)'
-              : isError
-                ? 'radial-gradient(circle, #f43f5e 0%, transparent 70%)'
+              : isProcessing
+                ? 'radial-gradient(circle, #f59e0b 0%, transparent 70%)'
                 : 'radial-gradient(circle, #a855f7 0%, transparent 70%)',
           }}
         />
 
-        {/* ── Main Dynamic Island Row ──────────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-3 relative z-10">
+        {/* ── Row 1: Header with State Badge & End Conversation Button ───── */}
+        <div className="flex items-center justify-between gap-3 relative z-10 mb-3">
           
-          {/* Left: Glowing Mic / Status Beacon */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Left: Status Badge */}
+          <div className="flex items-center gap-2.5">
             <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center border shadow-lg transition-all duration-300"
+              className="w-3 h-3 rounded-full transition-all"
               style={{
-                background: isDenied
-                  ? 'rgba(239, 68, 68, 0.2)'
-                  : isSuccess
-                    ? 'linear-gradient(135deg, #34d399, #059669)'
-                    : 'linear-gradient(135deg, #8b5cf6, #ec4899)',
-                borderColor: isSuccess ? 'rgba(52, 211, 153, 0.6)' : 'rgba(192, 132, 252, 0.5)',
-                boxShadow: isSuccess
-                  ? '0 0 20px rgba(52, 211, 153, 0.5)'
-                  : '0 0 20px rgba(168, 85, 247, 0.4)',
+                background: isSpeaking
+                  ? '#34d399'
+                  : isProcessing
+                    ? '#f59e0b'
+                    : isListening
+                      ? '#ec4899'
+                      : '#94a3b8',
+                boxShadow: isListening ? '0 0 10px #ec4899' : 'none',
+                animation: isListening ? 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite' : 'none',
               }}
-            >
-              {isDenied ? (
-                <FiMicOff className="w-5 h-5 text-rose-300" />
-              ) : isSuccess ? (
-                <FiCheckCircle className="w-5 h-5 text-white animate-in zoom-in-50" />
-              ) : isError ? (
-                <FiAlertCircle className="w-5 h-5 text-rose-300" />
-              ) : (
-                <FiMic className="w-5 h-5 text-white animate-pulse" />
-              )}
-            </div>
-
-            <div className="hidden sm:block">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-white">
-                  Voice Assistant
-                </span>
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    isSuccess ? 'bg-emerald-400' : 'bg-purple-400 animate-ping'
-                  }`}
-                />
-              </div>
-              <p className="text-[11px] text-slate-400">Wake word: “{wakeWord}”</p>
-            </div>
-          </div>
-
-          {/* Center: Live Speech Stream & Visualizer */}
-          <div className="flex-1 min-w-0 px-2 sm:px-4">
-            <div className="flex items-center gap-2 mb-1">
-              <MiniAudioVisualizer isListening={isListening && !isSuccess} isSuccess={isSuccess} />
-
-              <span className="text-xs font-mono font-medium">
-                {isSuccess ? (
-                  <span className="text-emerald-300 font-bold">{commandStatus.text}</span>
-                ) : isError ? (
-                  <span className="text-rose-300">{commandStatus.text}</span>
-                ) : isEvaluating ? (
-                  <span className="text-purple-300 font-bold animate-pulse flex items-center gap-1">
-                    <FiClock className="w-3 h-3 text-purple-400" /> Processing in 2.6s…
-                  </span>
-                ) : isListening ? (
-                  <span className="text-slate-300">Listening for command…</span>
-                ) : (
-                  <span className="text-slate-400">Ready</span>
-                )}
-              </span>
-            </div>
-
-            {/* Live Spoken Words Typographic Display */}
-            <div className="truncate text-sm font-semibold text-white">
-              {transcript ? (
-                <span className="text-purple-200 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">
-                  “{transcript}”
-                </span>
-              ) : (
-                <span className="text-xs text-slate-500 font-normal italic">
-                  Say “Open Expenses”, “Go to Study”, “Show Analytics”, or “Exit”…
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Right: Quick Action & Close Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
-            {isListening && transcript?.trim() && !isSuccess && (
-              <button
-                onClick={handleExecuteNow}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-500 hover:bg-purple-400 text-white shadow-lg shadow-purple-900/50 transition-all"
-                title="Execute spoken command now"
+            />
+            <span className="text-xs font-extrabold tracking-wider uppercase text-white flex items-center gap-1.5 font-mono">
+              <span>Voice Assistant</span>
+              <span className="text-slate-400 font-normal">·</span>
+              <span
+                className={
+                  isSpeaking
+                    ? 'text-emerald-300 font-bold'
+                    : isProcessing
+                      ? 'text-amber-300 font-bold'
+                      : 'text-purple-300'
+                }
               >
-                <FiZap className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Execute</span>
-              </button>
-            )}
+                {isSpeaking
+                  ? 'Speaking…'
+                  : isProcessing
+                    ? 'Processing…'
+                    : isListening
+                      ? 'Listening…'
+                      : 'Idle'}
+              </span>
+            </span>
 
+            {/* Active Multi-Turn Flow Tag */}
+            {activeFlow && (
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-500/20 text-purple-200 border border-purple-400/30">
+                {activeFlow.type === 'ADD_EXPENSE'
+                  ? '💸 Adding Expense'
+                  : activeFlow.type === 'ADD_STUDY'
+                    ? '📚 Logging Study'
+                    : 'Active Conversation'}
+              </span>
+            )}
+          </div>
+
+          {/* Right: End Conversation Action */}
+          <div className="flex items-center gap-2">
             <button
               onClick={deactivateVoiceMode}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white border border-white/10 transition-colors"
-              aria-label="Close Voice Assistant"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-200 transition-all hover:text-white group shadow-sm"
+              title="End Voice Conversation (or say 'Stop listening')"
+            >
+              <FiSquare className="w-3 h-3 text-rose-400 group-hover:scale-110 transition-transform" />
+              <span>End Conversation</span>
+            </button>
+            <button
+              onClick={deactivateVoiceMode}
+              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+              aria-label="Close"
             >
               <FiX className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* ── Bottom Quick Navigation Shortcut Chips ──────────────────────── */}
-        <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+        {/* ── Row 2: Visualizer & Dialog Content Stream ────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center relative z-10 bg-black/30 rounded-2xl p-3.5 border border-white/10">
+          
+          {/* Animated Microphone Icon */}
+          <div className="md:col-span-2 flex items-center justify-center md:justify-start gap-2">
+            <div
+              className="w-11 h-11 rounded-2xl flex items-center justify-center border shadow-lg transition-all"
+              style={{
+                background: isDenied
+                  ? 'rgba(239, 68, 68, 0.2)'
+                  : isSpeaking
+                    ? 'linear-gradient(135deg, #059669, #34d399)'
+                    : 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+                borderColor: isSpeaking ? '#34d399' : '#c084fc',
+              }}
+            >
+              {isDenied ? (
+                <FiMicOff className="w-5 h-5 text-rose-400" />
+              ) : isSpeaking ? (
+                <FiVolume2 className="w-5 h-5 text-white animate-pulse" />
+              ) : (
+                <FiMic className="w-5 h-5 text-white animate-bounce" />
+              )}
+            </div>
+            <ConversationalWaveform state={conversationState} />
+          </div>
+
+          {/* Assistant's Response Bubble + Live User Speech */}
+          <div className="md:col-span-10 space-y-1.5">
+            
+            {/* Assistant Speech Bubble */}
+            <div className="flex items-start gap-2">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300 shrink-0 pt-0.5">
+                Assistant:
+              </span>
+              <p className="text-sm font-semibold text-white leading-snug">
+                {lastAssistantMessage || "I'm listening."}
+              </p>
+            </div>
+
+            {/* Live Recognized User Speech Text */}
+            <div className="flex items-start gap-2 text-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 shrink-0 pt-0.5">
+                You:
+              </span>
+              <div className="text-purple-200 font-medium italic min-h-[18px]">
+                {transcript ? (
+                  <span className="bg-purple-500/20 px-2 py-0.5 rounded-md border border-purple-500/30 not-italic text-white">
+                    “{transcript}”
+                  </span>
+                ) : (
+                  <span className="text-slate-500 not-italic">
+                    {isListening ? 'Speak naturally… e.g. “Add expense”, “500”, “Food”, “Open study”' : '…'}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Row 3: Quick Conversational Action Pills ─────────────────────── */}
+        <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-slate-400 shrink-0">
-            <FiCompass className="w-3 h-3 text-purple-400" />
-            <span className="hidden sm:inline">Jump to:</span>
+            <FiZap className="w-3 h-3 text-purple-400" />
+            <span className="hidden sm:inline">Try Saying:</span>
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
             {[
-              { label: 'Dashboard', path: '/', voice: 'Opening Dashboard.' },
-              { label: 'Expenses', path: '/expense', voice: 'Opening Expenses.' },
-              { label: 'Study', path: '/study', voice: 'Opening Study Tracker.' },
-              { label: 'Analytics', path: '/analytics', voice: 'Opening Analytics.' },
-              { label: 'Calendar', path: '/calendar', voice: 'Opening Calendar.' },
-              { label: 'Back', path: 'BACK', voice: 'Going back.' },
-            ].map((chip) => (
+              { label: '“Add expense”', text: 'Add expense' },
+              { label: '“Show expenses”', text: 'Show my expenses' },
+              { label: '“Open study”', text: 'Open study' },
+              { label: '“Show analytics”', text: 'Show analytics' },
+              { label: '“Open calendar”', text: 'Open calendar' },
+              { label: '“Help”', text: 'Help' },
+              { label: '“Stop listening”', text: 'Stop listening' },
+            ].map((pill) => (
               <button
-                key={chip.label}
-                onClick={() => handleChipClick(chip.path, chip.voice)}
+                key={pill.label}
+                onClick={() => handleQuickChip(pill.text)}
                 className="px-2.5 py-1 rounded-xl text-[11px] font-medium bg-white/5 hover:bg-purple-500/20 text-slate-300 hover:text-white border border-white/10 hover:border-purple-400/40 transition-all flex items-center gap-1"
               >
-                <span>{chip.label}</span>
-                <FiArrowRight className="w-2.5 h-2.5 opacity-60" />
+                <span>{pill.label}</span>
               </button>
             ))}
           </div>

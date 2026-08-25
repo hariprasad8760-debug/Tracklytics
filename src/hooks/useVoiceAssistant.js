@@ -2,33 +2,47 @@
  * ============================================================================
  * FILE: src/hooks/useVoiceAssistant.js
  * ============================================================================
- * WHY THIS FILE IS NEEDED:
- *   High-Performance, Low-Latency Voice Assistant Orchestrator.
+ * RELIABLE WAKE WORD DETECTION + CONTINUOUS CONVERSATION
  *
- * BEHAVIORS:
- *   1. Background wake-word detection for "MAPLA" (continuous, crash-proof).
- *   2. Instant activation with Web Audio futuristic chime.
- *   3. Real-time speech streaming into Voice Floating Bar.
- *   4. Fast <1s wake response, zero robotic speech delays.
- *   5. Self-restarting listener across page navigations.
+ * KEY DESIGN DECISIONS:
+ *   1. Uses 'en-IN' (Indian English) for better MAPLA recognition in India.
+ *   2. Background watcher uses short sessions (NOT continuous) — Chrome's
+ *      webkitSpeechRecognition works MORE reliably with shorter sessions that
+ *      auto-restart rather than one long-running continuous session.
+ *   3. Shows what the mic is hearing for debugging (brief flash on HUD).
+ *   4. Mic button ALWAYS directly activates voice mode as backup.
+ *   5. Extremely broad phonetic matching for "MAPLA".
  * ============================================================================
  */
 
 import { useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useVoice } from '../context/VoiceContext';
-import { playActivationChime } from '../services/voiceFeedbackService';
+import { playActivationChime, speakNaturalVoice } from '../services/voiceFeedbackService';
+import { evaluateConversationTurn } from '../services/voiceDialogManager';
 
 const SpeechRecognitionAPI =
   typeof window !== 'undefined'
     ? window.SpeechRecognition || window.webkitSpeechRecognition || null
     : null;
 
-// Phonetic & STT variations for "MAPLA"
+// ─── COMPREHENSIVE PHONETIC VARIATIONS FOR "MAPLA" ───────────────────────────
+// Indian English / browser STT commonly mishears "MAPLA" as many things.
+// We match ALL of them.
 const MAPLA_VARIATIONS = [
-  'MAPLA', 'MAAPLA', 'MAPLE', 'MAP LA', 'MAP-LA', 'MOPLA', 'MOBLA',
-  'MARPLE', 'MATLA', 'MATHLA', 'MAFLA', 'MABLA', 'MAP L', 'MAPLE A',
-  'MAHPLA', 'MOP LA', 'MAKLA', 'MARLA', 'MALA', 'METLA', 'MAFIA',
-  'NAPLA', 'MATHELA',
+  'MAPLA', 'MAAPLA', 'MAPLAH', 'MAPLE', 'MAPLES',
+  'MAP LA', 'MAP-LA', 'MAP LAH', 'MAP LAW',
+  'MOPLA', 'MOPLA', 'MOBLA', 'MOBILA',
+  'MARPLE', 'MARLA', 'MATLA', 'MATHLA', 'MAFLA', 'MABLA',
+  'MAP L', 'MAPLE A', 'MAPLE AH', 'MAPLE AY',
+  'MAHPLA', 'MOP LA', 'MAKLA', 'MALA',
+  'METLA', 'MAFIA', 'NAPLA', 'MATHELA',
+  'MAP ALLAH', 'MAP LAW', 'MAPLE AH', 'MAP LINE',
+  'MOBILES', 'MATLAB', 'MALLA', 'MAHABLA', 'MAPPLA',
+  'MOPLER', 'MARBLER', 'MUPPLA', 'MATHA', 'MACHLA',
+  'MOKKA', 'MACLA', 'MAPNA', 'APPLA', 'AAPLA',
+  'MAMA', 'MANLA', 'MAPPA', 'MAMPLA', 'MABLA',
+  'TABLA', 'SABLA', 'KAPLA', 'PAMLA',
 ];
 
 function matchesWakeWord(spokenText, configuredWakeWord) {
@@ -41,24 +55,30 @@ function matchesWakeWord(spokenText, configuredWakeWord) {
     .trim();
   const cleanTarget = configuredWakeWord.toUpperCase().trim();
 
+  // 1. Direct substring inclusion
   if (cleanSpoken.includes(cleanTarget)) return true;
 
+  // 2. All phonetic variations
   if (cleanTarget === 'MAPLA') {
     for (const v of MAPLA_VARIATIONS) {
       if (cleanSpoken.includes(v)) return true;
     }
+    // Regex pattern: words starting with M, short word with P/B in middle
+    if (/\bm[aeiou][a-z]{0,3}l[aeiou]?\b/i.test(cleanSpoken)) return true;
+    if (/\bm[a-z]p[a-z]{0,2}[la]\b/i.test(cleanSpoken)) return true;
   }
 
+  // 3. Token-by-token fuzzy distance (allow 1-char error)
   const tokens = cleanSpoken.split(' ');
   for (const token of tokens) {
     if (token === cleanTarget) return true;
-    if (cleanTarget.length >= 4 && token.length >= 4) {
-      let diff = 0;
-      const len = Math.min(token.length, cleanTarget.length);
-      for (let i = 0; i < len; i++) {
+    if (cleanTarget.length >= 3 && token.length >= 3) {
+      // Levenshtein-ish: count chars different in same position + length diff
+      const minLen = Math.min(token.length, cleanTarget.length);
+      let diff = Math.abs(token.length - cleanTarget.length);
+      for (let i = 0; i < minLen; i++) {
         if (token[i] !== cleanTarget[i]) diff++;
       }
-      diff += Math.abs(token.length - cleanTarget.length);
       if (diff <= 1) return true;
     }
   }
@@ -79,267 +99,415 @@ function extractTrailingCommand(spokenText, configuredWakeWord) {
 }
 
 export const useVoiceAssistant = () => {
+  const navigate = useNavigate();
   const {
     wakeWord,
     wakeWordEnabled,
+    continuousMode,
+    inactivityTimeoutSec,
+    assistantVoice,
+    conversationState,
     isVoiceModeActive,
+    activeFlow,
     micPermission,
+    pendingCommand,
+    setConversationState,
+    setActiveFlow,
+    setLastAssistantMessage,
     setMicPermission,
-    setIsListening,
     activateVoiceMode,
     deactivateVoiceMode,
     updateTranscript,
+    clearPendingCommand,
   } = useVoice();
 
-  // Stable refs for context values
+  // Stable refs
   const wakeWordRef = useRef(wakeWord);
   wakeWordRef.current = wakeWord;
-
   const wakeWordEnabledRef = useRef(wakeWordEnabled);
   wakeWordEnabledRef.current = wakeWordEnabled;
-
+  const continuousModeRef = useRef(continuousMode);
+  continuousModeRef.current = continuousMode;
+  const inactivityTimeoutSecRef = useRef(inactivityTimeoutSec);
+  inactivityTimeoutSecRef.current = inactivityTimeoutSec;
+  const assistantVoiceRef = useRef(assistantVoice);
+  assistantVoiceRef.current = assistantVoice;
+  const conversationStateRef = useRef(conversationState);
+  conversationStateRef.current = conversationState;
   const isVoiceModeActiveRef = useRef(isVoiceModeActive);
   isVoiceModeActiveRef.current = isVoiceModeActive;
+  const activeFlowRef = useRef(activeFlow);
+  activeFlowRef.current = activeFlow;
 
-  const activateVoiceModeRef = useRef(activateVoiceMode);
-  activateVoiceModeRef.current = activateVoiceMode;
-
-  const setMicPermissionRef = useRef(setMicPermission);
-  setMicPermissionRef.current = setMicPermission;
-
-  const setIsListeningRef = useRef(setIsListening);
-  setIsListeningRef.current = setIsListening;
-
-  const updateTranscriptRef = useRef(updateTranscript);
-  updateTranscriptRef.current = updateTranscript;
-
-  // Recognition references
+  // Recognition refs
   const backgroundRecRef = useRef(null);
   const activeRecRef = useRef(null);
   const isWatcherRunningRef = useRef(false);
   const isActiveRunningRef = useRef(false);
   const lastTriggerTimeRef = useRef(0);
   const restartTimerRef = useRef(null);
+  const silenceTimerRef = useRef(null);
+  const inactivityTimerRef = useRef(null);
+  const finalInactivityTimerRef = useRef(null);
+  const micInitDoneRef = useRef(false);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // STOP ACTIVE LISTENER
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── TIMER CLEANUP ────────────────────────────────────────────────────────
+  const clearTimers = useCallback(() => {
+    [silenceTimerRef, inactivityTimerRef, finalInactivityTimerRef, restartTimerRef].forEach(r => {
+      if (r.current) { clearTimeout(r.current); r.current = null; }
+    });
+  }, []);
+
+  // ─── STOP ACTIVE LISTENER ─────────────────────────────────────────────────
   const stopActiveListener = useCallback(() => {
     isActiveRunningRef.current = false;
-    setIsListeningRef.current(false);
-
+    clearTimers();
     if (activeRecRef.current) {
       try {
         activeRecRef.current.onresult = null;
         activeRecRef.current.onerror = null;
         activeRecRef.current.onend = null;
-        activeRecRef.current.stop();
+        activeRecRef.current.abort();
       } catch { /* ignore */ }
       activeRecRef.current = null;
     }
-  }, []);
+  }, [clearTimers]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // STOP BACKGROUND WATCHER
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── STOP BACKGROUND WATCHER ──────────────────────────────────────────────
   const stopBackgroundWatcher = useCallback(() => {
     isWatcherRunningRef.current = false;
-    if (restartTimerRef.current) {
-      clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = null;
-    }
+    if (restartTimerRef.current) { clearTimeout(restartTimerRef.current); restartTimerRef.current = null; }
     if (backgroundRecRef.current) {
       try {
         backgroundRecRef.current.onresult = null;
         backgroundRecRef.current.onerror = null;
         backgroundRecRef.current.onend = null;
-        backgroundRecRef.current.stop();
+        backgroundRecRef.current.abort();
       } catch { /* ignore */ }
       backgroundRecRef.current = null;
     }
   }, []);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // START BACKGROUND WATCHER (continuous wake word listener)
-  // ─────────────────────────────────────────────────────────────────────────
-  const startBackgroundWatcher = useCallback(() => {
-    if (!SpeechRecognitionAPI || !wakeWordEnabledRef.current || isVoiceModeActiveRef.current) {
-      return;
-    }
-    if (isWatcherRunningRef.current) return;
+  // ─── PROCESS CONVERSATION TURN ────────────────────────────────────────────
+  const processTurn = useCallback((spokenText) => {
+    if (!spokenText || !spokenText.trim()) return;
 
-    isWatcherRunningRef.current = true;
-
-    try {
-      const rec = new SpeechRecognitionAPI();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.maxAlternatives = 3;
-      rec.lang = navigator.language || 'en-US';
-
-      rec.onstart = () => {
-        setMicPermissionRef.current('granted');
-      };
-
-      rec.onresult = (event) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          for (let j = 0; j < event.results[i].length; j++) {
-            const spoken = event.results[i][j].transcript;
-
-            if (matchesWakeWord(spoken, wakeWordRef.current)) {
-              const now = Date.now();
-              if (now - lastTriggerTimeRef.current > 1200) {
-                lastTriggerTimeRef.current = now;
-
-                const trailingCommand = extractTrailingCommand(spoken, wakeWordRef.current);
-
-                // Stop watcher immediately
-                stopBackgroundWatcher();
-
-                // Play high-tech activation chime
-                playActivationChime();
-
-                // Instantly open voice bar with zero delay
-                activateVoiceModeRef.current(trailingCommand);
-                return;
-              }
-            }
-          }
-        }
-      };
-
-      rec.onerror = (event) => {
-        if (event.error === 'not-allowed') {
-          setMicPermissionRef.current('denied');
-          isWatcherRunningRef.current = false;
-          return;
-        }
-      };
-
-      rec.onend = () => {
-        if (isWatcherRunningRef.current && wakeWordEnabledRef.current && !isVoiceModeActiveRef.current) {
-          restartTimerRef.current = setTimeout(() => {
-            if (isWatcherRunningRef.current && !isVoiceModeActiveRef.current) {
-              try {
-                rec.start();
-              } catch {
-                isWatcherRunningRef.current = false;
-                startBackgroundWatcher();
-              }
-            }
-          }, 180);
-        }
-      };
-
-      backgroundRecRef.current = rec;
-      try {
-        rec.start();
-      } catch { /* ignore */ }
-    } catch { /* ignore */ }
-  }, [stopBackgroundWatcher]);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // START ACTIVE LISTENER (real-time stream into floating bar)
-  // ─────────────────────────────────────────────────────────────────────────
-  const startActiveListener = useCallback(() => {
-    if (!SpeechRecognitionAPI) return;
+    setConversationState('PROCESSING');
     stopActiveListener();
 
+    const result = evaluateConversationTurn(spokenText, activeFlowRef.current, wakeWordRef.current);
+    setActiveFlow(result.nextFlow);
+    setLastAssistantMessage(result.responseText);
+
+    if (result.type === 'NAVIGATE' && result.targetPath) {
+      result.targetPath === 'BACK' ? navigate(-1) : navigate(result.targetPath);
+    }
+
+    if (result.type === 'STOP_CONVERSATION' || !result.shouldKeepListening) {
+      setConversationState('ASSISTANT_RESPONDING');
+      speakNaturalVoice(result.responseText, {
+        voiceType: assistantVoiceRef.current,
+        onEnd: () => deactivateVoiceMode(),
+      });
+      return;
+    }
+
+    setConversationState('ASSISTANT_RESPONDING');
+    speakNaturalVoice(result.responseText, {
+      voiceType: assistantVoiceRef.current,
+      onEnd: () => {
+        if (isVoiceModeActiveRef.current && continuousModeRef.current) {
+          updateTranscript('');
+          setConversationState('LISTENING');
+          startActiveListener();
+        } else {
+          deactivateVoiceMode();
+        }
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate, setActiveFlow, setLastAssistantMessage, setConversationState, deactivateVoiceMode, updateTranscript, stopActiveListener]);
+
+  // ─── INACTIVITY TIMER ─────────────────────────────────────────────────────
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (finalInactivityTimerRef.current) clearTimeout(finalInactivityTimerRef.current);
+
+    if (!isVoiceModeActiveRef.current || conversationStateRef.current !== 'LISTENING') return;
+
+    const warnMs = Math.max(15000, ((inactivityTimeoutSecRef.current || 60) - 10) * 1000);
+    inactivityTimerRef.current = setTimeout(() => {
+      if (!isVoiceModeActiveRef.current || conversationStateRef.current !== 'LISTENING') return;
+      setConversationState('ASSISTANT_RESPONDING');
+      setLastAssistantMessage('Are you still there?');
+      stopActiveListener();
+      speakNaturalVoice('Are you still there?', {
+        voiceType: assistantVoiceRef.current,
+        onEnd: () => {
+          if (isVoiceModeActiveRef.current) {
+            setConversationState('LISTENING');
+            startActiveListener();
+            finalInactivityTimerRef.current = setTimeout(() => {
+              if (isVoiceModeActiveRef.current) {
+                speakNaturalVoice('Ending voice session due to inactivity.', {
+                  voiceType: assistantVoiceRef.current,
+                  onEnd: () => deactivateVoiceMode(),
+                });
+              }
+            }, 10000);
+          }
+        },
+      });
+    }, warnMs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setConversationState, setLastAssistantMessage, stopActiveListener, deactivateVoiceMode]);
+
+  // ─── START ACTIVE LISTENER (conversation mode) ────────────────────────────
+  const startActiveListener = useCallback(() => {
+    if (!SpeechRecognitionAPI || !isVoiceModeActiveRef.current) return;
+    stopActiveListener();
     isActiveRunningRef.current = true;
-    setIsListeningRef.current(true);
+    resetInactivityTimer();
 
     try {
       const rec = new SpeechRecognitionAPI();
       rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
-      rec.lang = navigator.language || 'en-US';
+      rec.lang = 'en-IN'; // Indian English — better for Indian accents
 
-      rec.onstart = () => {
-        setIsListeningRef.current(true);
-        setMicPermissionRef.current('granted');
-      };
+      rec.onstart = () => setMicPermission('granted');
 
       rec.onresult = (event) => {
-        let currentText = '';
+        resetInactivityTimer();
+        let text = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          currentText += event.results[i][0].transcript + ' ';
+          text += event.results[i][0].transcript + ' ';
         }
-        updateTranscriptRef.current(currentText.trim());
+        const cleanText = text.trim();
+        updateTranscript(cleanText);
+
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        if (cleanText) {
+          silenceTimerRef.current = setTimeout(() => {
+            if (isVoiceModeActiveRef.current && cleanText) processTurn(cleanText);
+          }, 1800);
+        }
       };
 
-      rec.onerror = (event) => {
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setMicPermissionRef.current('denied');
-        }
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed') setMicPermission('denied');
       };
 
       rec.onend = () => {
-        if (isActiveRunningRef.current) {
+        if (isActiveRunningRef.current && isVoiceModeActiveRef.current && conversationStateRef.current === 'LISTENING') {
           try { rec.start(); } catch { /* ignore */ }
-        } else {
-          setIsListeningRef.current(false);
         }
       };
 
       activeRecRef.current = rec;
-      try { rec.start(); } catch { /* ignore */ }
-    } catch {
-      setIsListeningRef.current(false);
-    }
-  }, [stopActiveListener]);
+      rec.start();
+    } catch { /* ignore */ }
+  }, [stopActiveListener, resetInactivityTimer, setMicPermission, updateTranscript, processTurn]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // EFFECT: Mode transitions
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── START BACKGROUND WATCHER ─────────────────────────────────────────────
+  // Uses SHORT non-continuous sessions that auto-restart.
+  // This is more reliable in Chrome than one long continuous session.
+  const startBackgroundWatcher = useCallback(() => {
+    if (!SpeechRecognitionAPI) return;
+    if (!wakeWordEnabledRef.current) return;
+    if (isVoiceModeActiveRef.current) return;
+    if (isWatcherRunningRef.current) return;
+
+    isWatcherRunningRef.current = true;
+
+    const runSession = () => {
+      if (!isWatcherRunningRef.current || isVoiceModeActiveRef.current) return;
+
+      try {
+        const rec = new SpeechRecognitionAPI();
+        rec.continuous = false;    // Short session — more reliable
+        rec.interimResults = true;
+        rec.maxAlternatives = 5;   // Get more alternatives to widen matching
+        rec.lang = 'en-IN';        // Indian English
+
+        rec.onstart = () => {
+          setMicPermission('granted');
+        };
+
+        rec.onresult = (event) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            // Check ALL alternatives from each result
+            for (let j = 0; j < event.results[i].length; j++) {
+              const spoken = event.results[i][j].transcript;
+
+              if (matchesWakeWord(spoken, wakeWordRef.current)) {
+                const now = Date.now();
+                if (now - lastTriggerTimeRef.current > 2000) {
+                  lastTriggerTimeRef.current = now;
+
+                  const trailingCommand = extractTrailingCommand(spoken, wakeWordRef.current);
+                  stopBackgroundWatcher();
+                  playActivationChime();
+                  activateVoiceMode('', "I'm listening.");
+
+                  if (trailingCommand) {
+                    processTurn(trailingCommand);
+                  } else {
+                    setConversationState('ASSISTANT_RESPONDING');
+                    speakNaturalVoice("I'm listening.", {
+                      voiceType: assistantVoiceRef.current,
+                      onEnd: () => {
+                        if (isVoiceModeActiveRef.current) {
+                          setConversationState('LISTENING');
+                          startActiveListener();
+                        }
+                      },
+                    });
+                  }
+                  return;
+                }
+              }
+            }
+          }
+        };
+
+        rec.onerror = (event) => {
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            setMicPermission('denied');
+            isWatcherRunningRef.current = false;
+            return;
+          }
+          // For no-speech, network, aborted — just let onend restart it
+        };
+
+        rec.onend = () => {
+          if (isWatcherRunningRef.current && !isVoiceModeActiveRef.current) {
+            // Restart immediately (100ms gap to avoid browser throttle)
+            restartTimerRef.current = setTimeout(runSession, 100);
+          }
+        };
+
+        backgroundRecRef.current = rec;
+        rec.start();
+      } catch (err) {
+        // If start() throws, retry after a short delay
+        if (isWatcherRunningRef.current) {
+          restartTimerRef.current = setTimeout(runSession, 500);
+        }
+      }
+    };
+
+    runSession();
+  }, [stopBackgroundWatcher, setMicPermission, activateVoiceMode, processTurn, setConversationState, startActiveListener]);
+
+  // ─── PROACTIVE MIC INIT ───────────────────────────────────────────────────
+  const initMicPermission = useCallback(() => {
+    if (micInitDoneRef.current) return;
+    if (!navigator.mediaDevices?.getUserMedia) return;
+
+    micInitDoneRef.current = true;
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        stream.getTracks().forEach(t => t.stop());
+        setMicPermission('granted');
+        if (wakeWordEnabledRef.current && !isVoiceModeActiveRef.current) {
+          startBackgroundWatcher();
+        }
+      })
+      .catch(() => {
+        setMicPermission('denied');
+      });
+  }, [setMicPermission, startBackgroundWatcher]);
+
+  // ─── DIRECT VOICE ACTIVATION (for mic button clicks) ─────────────────────
+  const activateDirectly = useCallback(() => {
+    stopBackgroundWatcher();
+    if (!isVoiceModeActiveRef.current) {
+      playActivationChime();
+      activateVoiceMode('', "I'm listening.");
+      setConversationState('ASSISTANT_RESPONDING');
+      speakNaturalVoice("I'm listening.", {
+        voiceType: assistantVoiceRef.current,
+        onEnd: () => {
+          if (isVoiceModeActiveRef.current) {
+            setConversationState('LISTENING');
+            startActiveListener();
+          }
+        },
+      });
+    }
+  }, [stopBackgroundWatcher, activateVoiceMode, setConversationState, startActiveListener]);
+
+  // ─── PENDING COMMAND EFFECT ───────────────────────────────────────────────
+  useEffect(() => {
+    if (pendingCommand && pendingCommand.trim()) {
+      if (!isVoiceModeActiveRef.current) {
+        activateVoiceMode('', "I'm listening.");
+      }
+      processTurn(pendingCommand);
+      clearPendingCommand();
+    }
+  }, [pendingCommand, processTurn, clearPendingCommand, activateVoiceMode]);
+
+  // ─── MODE SWITCH EFFECT ───────────────────────────────────────────────────
   useEffect(() => {
     if (!SpeechRecognitionAPI) return;
 
     if (isVoiceModeActive) {
       stopBackgroundWatcher();
-      startActiveListener();
+      if (conversationState === 'LISTENING') {
+        startActiveListener();
+      }
     } else {
       stopActiveListener();
       if (wakeWordEnabled) {
-        const timer = setTimeout(() => {
-          startBackgroundWatcher();
-        }, 120);
-        return () => clearTimeout(timer);
+        const t = setTimeout(() => startBackgroundWatcher(), 200);
+        return () => clearTimeout(t);
       }
     }
-  }, [isVoiceModeActive, wakeWordEnabled, startActiveListener, stopActiveListener, startBackgroundWatcher, stopBackgroundWatcher]);
+  }, [isVoiceModeActive, conversationState, wakeWordEnabled, startActiveListener, stopActiveListener, startBackgroundWatcher, stopBackgroundWatcher]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // EFFECT: User Gesture Kickstart
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── INIT EFFECT ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const handleGesture = () => {
+    // Try proactive init on mount
+    initMicPermission();
+
+    // Also init on first user gesture (click, key, touch)
+    const onGesture = () => {
+      initMicPermission();
       if (wakeWordEnabledRef.current && !isVoiceModeActiveRef.current && !isWatcherRunningRef.current) {
-        try { startBackgroundWatcher(); } catch { /* ignore */ }
+        startBackgroundWatcher();
       }
     };
 
-    window.addEventListener('click', handleGesture, { passive: true });
-    window.addEventListener('keydown', handleGesture, { passive: true });
+    window.addEventListener('click', onGesture, { once: false, passive: true });
+    window.addEventListener('keydown', onGesture, { once: false, passive: true });
+    window.addEventListener('touchstart', onGesture, { once: false, passive: true });
 
     return () => {
-      window.removeEventListener('click', handleGesture);
-      window.removeEventListener('keydown', handleGesture);
+      window.removeEventListener('click', onGesture);
+      window.removeEventListener('keydown', onGesture);
+      window.removeEventListener('touchstart', onGesture);
     };
-  }, [startBackgroundWatcher]);
+  }, [initMicPermission, startBackgroundWatcher]);
 
-  // Cleanup on unmount
+  // ─── CLEANUP ──────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       stopBackgroundWatcher();
       stopActiveListener();
+      clearTimers();
     };
-  }, [stopBackgroundWatcher, stopActiveListener]);
+  }, [stopBackgroundWatcher, stopActiveListener, clearTimers]);
 
   return {
     isSupported: !!SpeechRecognitionAPI,
+    initMicPermission,
+    processTurn,
     startActiveListener,
     stopActiveListener,
+    activateDirectly,
   };
 };
 
