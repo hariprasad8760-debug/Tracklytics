@@ -4,12 +4,12 @@ title Tracklytics Spring Boot Backend Server Launcher
 
 echo ========================================================================
 echo  🚀 TRACKLYTICS SPRING BOOT BACKEND LAUNCHER
-echo  PATH: C:\Users\harip\OneDrive\Desktop\Tracklytics\run-backend.bat
+echo  PATH: %~dp0backend
 echo ========================================================================
 echo.
 
-:: Explicitly navigate into C:\Users\harip\OneDrive\Desktop\Tracklytics\backend
-cd /d "C:\Users\harip\OneDrive\Desktop\Tracklytics\backend"
+:: Explicitly navigate into backend folder
+cd /d "%~dp0backend"
 
 :: 1. CHECK FOR JAVA INSTALLATION
 echo [1/3] Checking Java Development Kit (JDK)...
@@ -34,9 +34,12 @@ set "MAVEN_CMD=mvn"
 
 mvn -version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    if exist "C:\Users\harip\OneDrive\Desktop\Tracklytics\backend\mvnw.cmd" (
+    if exist "%~dp0backend\mvnw.cmd" (
         echo [INFO] System 'mvn' not in PATH. Using local Maven Wrapper...
-        set "MAVEN_CMD=C:\Users\harip\OneDrive\Desktop\Tracklytics\backend\mvnw.cmd"
+        set "MAVEN_CMD=%~dp0backend\mvnw.cmd"
+    ) else if exist "C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.2\nbcode\java\maven\bin\mvn.cmd" (
+        echo [INFO] Using detected Maven binary...
+        set "MAVEN_CMD=C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.2\nbcode\java\maven\bin\mvn.cmd"
     ) else if exist "C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.0\nbcode\java\maven\bin\mvn.cmd" (
         echo [INFO] Using detected Maven binary...
         set "MAVEN_CMD=C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.0\nbcode\java\maven\bin\mvn.cmd"
@@ -53,8 +56,8 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 :: 3. VERIFY POM.XML
 echo [3/3] Verifying Spring Boot project configuration (pom.xml)...
-if not exist "C:\Users\harip\OneDrive\Desktop\Tracklytics\backend\pom.xml" (
-    echo [ERROR] Cannot find 'pom.xml' in C:\Users\harip\OneDrive\Desktop\Tracklytics\backend!
+if not exist "%~dp0backend\pom.xml" (
+    echo [ERROR] Cannot find 'pom.xml' in %~dp0backend!
     echo.
     goto ERROR_EXIT
 )

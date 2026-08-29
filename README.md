@@ -1,16 +1,47 @@
-# React + Vite
+# Tracklytics 🚀
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Tracklytics is a full-stack personal analytics, expense tracker, study logger, and schedule manager featuring a continuous conversational voice assistant.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📁 Repository Structure
 
-## React Compiler
+```
+Tracklytics/
+├── backend/                  # Spring Boot 3 Java Backend
+│   ├── src/                  # Controllers, Services, Models, Repositories
+│   ├── pom.xml               # Maven dependencies
+│   ├── schema.sql            # MySQL Database schema
+│   └── run-backend.bat       # Local backend runner
+├── frontend/                 # Vite + React + Tailwind CSS Frontend
+│   ├── src/                  # Components, Pages, Hooks, Context, Services
+│   ├── public/               # Static assets & icons
+│   ├── index.html            # Main HTML entry
+│   ├── package.json          # Frontend npm dependencies & scripts
+│   └── vite.config.js        # Vite configuration
+├── run-frontend.bat          # 1-Click launcher for Frontend Dev Server
+├── run-backend.bat           # 1-Click launcher for Spring Boot Backend
+├── schema.sql                # Root database schema copy
+└── README.md
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## ⚡ Quick Start
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### 1. Launching Frontend (React + Vite)
+Double-click `run-frontend.bat` from the root directory or run:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Access the frontend at: **http://localhost:5173/**
+
+### 2. Launching Backend (Spring Boot)
+Double-click `run-backend.bat` from the root directory or run:
+```bash
+cd backend
+mvn spring-boot:run
+```
+API endpoints and Swagger UI available at: **http://localhost:8080/api/v1**
