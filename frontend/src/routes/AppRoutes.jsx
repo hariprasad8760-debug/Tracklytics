@@ -28,6 +28,7 @@ import CalendarPage from '../pages/calendar/CalendarPage';
 import ReportsPage from '../pages/reports/ReportsPage';
 import AuthPage from '../pages/auth/AuthPage';
 import SettingsPage from '../pages/settings/SettingsPage';
+import ProfilePage from '../pages/profile/ProfilePage';
 
 export const AppRoutes = () => {
   return (
@@ -38,6 +39,7 @@ export const AppRoutes = () => {
         <Route index element={<DashboardPage />} />
 
         {/* Phase Pages */}
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="expense" element={<ExpensePage />} />
         <Route path="study" element={<StudyPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />

@@ -16,6 +16,7 @@ import GlassCard from '../../components/common/GlassCard';
 import GlassButton from '../../components/common/GlassButton';
 import Badge from '../../components/common/Badge';
 import { realtimeDb } from '../../services/realtimeDbService';
+import { useUserProfile } from '../../context/UserProfileContext';
 import { 
   FiClock, 
   FiBookOpen, 
@@ -27,10 +28,14 @@ import {
   FiTrendingDown,
   FiAward,
   FiPlus,
-  FiCheckCircle
+  FiCheckCircle,
+  FiSun,
+  FiZap
 } from 'react-icons/fi';
 
 export const DashboardPage = () => {
+  const { profile, statusOptions } = useUserProfile();
+
   // Real-Time Data State
   const [totals, setTotals] = useState(realtimeDb.getDashboardTotals());
 
@@ -104,16 +109,47 @@ export const DashboardPage = () => {
   return (
     <div className="space-y-8 relative">
       {/* ---------------------------------------------------------------------- */}
-      {/* HERO TITLE & LIVE TOAST NOTIFICATION                                   */}
+      {/* PERSONALIZED HERO GREETING BANNER                                       */}
       {/* ---------------------------------------------------------------------- */}
-      <div className="flex items-center justify-between pt-2">
-        <div>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white font-sans">
-            Monthly Growth
-          </h2>
-          <p className="text-sm font-normal text-slate-300/80 mt-2">
-            Real-Time Analytics & Database Sync
-          </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+        {/* Left: Avatar + Greeting */}
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="w-14 h-14 rounded-2xl p-0.5 bg-gradient-to-tr from-purple-500 to-pink-500 shadow-xl shadow-purple-900/40">
+              <img
+                src={profile.avatarUrl}
+                alt={profile.fullName}
+                className="w-full h-full rounded-[14px] object-cover border-2 border-slate-900"
+              />
+            </div>
+            <span
+              className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-950 flex items-center justify-center text-[8px]"
+              style={{ backgroundColor: statusOptions.find(s => s.id === profile.status)?.color || '#10b981' }}
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                Hey, {profile.fullName.split(' ')[0]} 👋
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                <FiAward className="w-3 h-3" /> Lv.{profile.level} · {profile.levelTitle}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+              <span className="flex items-center gap-1 text-orange-400 font-semibold">
+                <FiSun className="w-3.5 h-3.5" /> {profile.streakDays}-Day Streak
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className="flex items-center gap-1 text-purple-300">
+                <FiZap className="w-3 h-3 text-yellow-400" />
+                {profile.currentXp}/{profile.nextLevelXp} XP
+              </span>
+              <span className="text-slate-600">•</span>
+              <span>Real-Time Analytics & Database Sync</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">

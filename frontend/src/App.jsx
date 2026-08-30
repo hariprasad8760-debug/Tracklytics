@@ -21,6 +21,7 @@ import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { SidebarProvider } from './context/SidebarContext';
 import { VoiceProvider } from './context/VoiceContext';
+import { UserProfileProvider } from './context/UserProfileContext';
 import AppRoutes from './routes/AppRoutes';
 import VoiceOrchestrator from './components/voice/VoiceOrchestrator';
 import VoicePopup from './components/voice/VoicePopup';
@@ -28,16 +29,18 @@ import VoicePopup from './components/voice/VoicePopup';
 export function App() {
   return (
     <BrowserRouter>
-      <SidebarProvider>
-        <VoiceProvider>
-          {/* Background wake-word listener — invisible, always running */}
-          <VoiceOrchestrator />
-          {/* Global voice popup — appears over any page when voice mode is active */}
-          <VoicePopup />
-          {/* All app pages */}
-          <AppRoutes />
-        </VoiceProvider>
-      </SidebarProvider>
+      <UserProfileProvider>
+        <SidebarProvider>
+          <VoiceProvider>
+            {/* Background wake-word listener — invisible, always running */}
+            <VoiceOrchestrator />
+            {/* Global voice popup — appears over any page when voice mode is active */}
+            <VoicePopup />
+            {/* All app pages */}
+            <AppRoutes />
+          </VoiceProvider>
+        </SidebarProvider>
+      </UserProfileProvider>
     </BrowserRouter>
   );
 }

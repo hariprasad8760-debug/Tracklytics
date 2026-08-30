@@ -24,7 +24,8 @@ import {
   FiCalendar, 
   FiFileText, 
   FiUser, 
-  FiSettings 
+  FiSettings,
+  FiDatabase
 } from 'react-icons/fi';
 
 /**
@@ -82,14 +83,20 @@ export const NAV_ITEMS = [
  */
 export const SECONDARY_NAV_ITEMS = [
   {
-    id: 'auth',
-    label: 'Account',
-    path: '/auth',
+    id: 'profile',
+    label: 'Profile & Achievements',
+    path: '/profile',
     icon: FiUser,
   },
   {
+    id: 'auth',
+    label: 'Database & Account',
+    path: '/auth',
+    icon: FiDatabase,
+  },
+  {
     id: 'settings',
-    label: 'Settings',
+    label: 'Voice Settings',
     path: '/settings',
     icon: FiSettings,
   },

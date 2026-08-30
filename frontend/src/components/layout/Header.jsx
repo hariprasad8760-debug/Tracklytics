@@ -3,23 +3,39 @@
  * FILE: src/components/layout/Header.jsx
  * ============================================================================
  * Top header bar with page title, global search, notification bell,
- * voice activation mic button, and user profile pill.
+ * voice activation mic button, and interactive User Profile Hub.
  *
- * MIC BUTTON BEHAVIOR:
- *   - Click → instantly enters voice conversation mode (no wake word needed).
- *   - When background watcher is active (idle state), shows a small green dot.
- *   - When voice mode is active (listening/speaking), glows purple.
+ * FEATURES:
+ *   - Live AI status indicator.
+ *   - Global Search with ⌘K pill.
+ *   - Direct 1-click Mic button with real-time wake word listening badge.
+ *   - Interactive User Profile Pill with floating glass Profile Hub dropdown.
  * ============================================================================
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSidebar } from '../../context/SidebarContext';
 import { useVoice } from '../../context/VoiceContext';
-import { FiMenu, FiSearch, FiBell, FiPlus, FiZap, FiMic, FiMicOff } from 'react-icons/fi';
+import { useUserProfile } from '../../context/UserProfileContext';
+import { ProfileDropdown } from './ProfileDropdown';
+import {
+  FiMenu,
+  FiSearch,
+  FiBell,
+  FiPlus,
+  FiZap,
+  FiMic,
+  FiMicOff,
+  FiChevronDown,
+  FiAward
+} from 'react-icons/fi';
 import GlassButton from '../common/GlassButton';
 
 export const Header = ({ pageTitle = 'Dashboard' }) => {
   const { toggleMobile } = useSidebar();
+  const { profile, statusOptions } = useUserProfile();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
   const {
     isVoiceModeActive,
     isListening,
@@ -34,12 +50,12 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
   const isProcessing = conversationState === 'PROCESSING';
   const isActive = isListening || isSpeaking || isProcessing;
 
+  const currentStatus = statusOptions.find((s) => s.id === profile.status) || statusOptions[0];
+
   const handleMicClick = () => {
     if (isVoiceModeActive) {
-      // If already in voice mode, clicking mic ends the session
       deactivateVoiceMode();
     } else {
-      // Directly activate — no wake word needed
       activateDirectly();
     }
   };
@@ -110,15 +126,14 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
                   ? 'rgba(139,92,246,0.35)'
                   : 'rgba(255,255,255,0.1)',
               color: isActive ? '#c4b5fd' : isVoiceModeActive ? '#a78bfa' : '#94a3b8',
-              boxShadow: isActive
-                ? '0 0 18px rgba(139,92,246,0.35)'
-                : 'none',
+              boxShadow: isActive ? '0 0 18px rgba(139,92,246,0.35)' : 'none',
             }}
           >
-            {micPermission === 'denied'
-              ? <FiMicOff className="w-4 h-4 text-red-400" />
-              : <FiMic className="w-4 h-4" />
-            }
+            {micPermission === 'denied' ? (
+              <FiMicOff className="w-4 h-4 text-red-400" />
+            ) : (
+              <FiMic className="w-4 h-4" />
+            )}
 
             {/* Pulsing ring when actively listening / speaking */}
             {isActive && (
@@ -127,7 +142,10 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
 
             {/* Green dot: background watcher is running (IDLE state) */}
             {!isVoiceModeActive && micPermission === 'granted' && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 border border-black/40" title="Wake word listening" />
+              <span
+                className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 border border-black/40"
+                title="Wake word listening"
+              />
             )}
 
             {/* Purple dot: voice mode active but not yet speaking */}
@@ -136,7 +154,7 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
             )}
           </button>
 
-          {/* Wake word hint pill — shows only when mic is idle */}
+          {/* Wake word hint pill */}
           {!isVoiceModeActive && micPermission === 'granted' && (
             <span className="hidden lg:inline-flex items-center gap-1 text-[10px] text-slate-400 bg-white/5 border border-white/10 px-2 py-1 rounded-full">
               <FiMic className="w-2.5 h-2.5 text-emerald-400" />
@@ -157,21 +175,46 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
           </button>
 
-          {/* User Profile Pill */}
-          <div className="flex items-center gap-2.5 pl-2 border-l border-white/10">
-            <div className="relative">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
-                alt="User Avatar"
-                className="w-9 h-9 rounded-2xl object-cover border border-purple-500/40 shadow-sm"
-              />
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-black" />
-            </div>
+          {/* ─── Interactive User Profile Pill & Dropdown Hub ─── */}
+          <div className="relative pl-2 border-l border-white/10">
+            <button
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="flex items-center gap-2.5 p-1.5 pr-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/40 transition-all duration-200 cursor-pointer text-left group"
+              title="Open User Profile & Hub"
+              aria-expanded={isProfileOpen}
+            >
+              {/* Avatar with Status Dot */}
+              <div className="relative shrink-0">
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile.fullName}
+                  className="w-8 h-8 rounded-xl object-cover border border-purple-500/40 shadow-sm group-hover:scale-105 transition-transform"
+                />
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-slate-900 shadow-xs"
+                  style={{ backgroundColor: currentStatus.color }}
+                />
+              </div>
 
-            <div className="hidden xl:flex flex-col text-left">
-              <span className="text-xs font-semibold text-white leading-tight">Hari Prasath</span>
-              <span className="text-[10px] text-purple-400">Pro Student</span>
-            </div>
+              {/* Name & Level Badge */}
+              <div className="hidden xl:flex flex-col text-left">
+                <span className="text-xs font-semibold text-white leading-tight group-hover:text-purple-300 transition-colors truncate max-w-[110px]">
+                  {profile.fullName}
+                </span>
+                <span className="text-[10px] text-purple-400 font-medium flex items-center gap-1">
+                  <FiAward className="w-2.5 h-2.5" /> Lv.{profile.level}
+                </span>
+              </div>
+
+              <FiChevronDown
+                className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform duration-200 ${
+                  isProfileOpen ? 'rotate-180 text-purple-400' : ''
+                }`}
+              />
+            </button>
+
+            {/* Floating Dropdown Modal */}
+            <ProfileDropdown isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
           </div>
         </div>
       </div>
