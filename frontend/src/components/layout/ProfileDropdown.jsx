@@ -167,17 +167,6 @@ export const ProfileDropdown = ({ isOpen, onClose }) => {
         </button>
 
         <button
-          onClick={() => handleNav('/auth')}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors group cursor-pointer"
-        >
-          <span className="flex items-center gap-2.5">
-            <FiSettings className="w-4 h-4 text-slate-400 group-hover:scale-110 transition-transform" />
-            <span>Account & MySQL Database</span>
-          </span>
-          <FiChevronRight className="text-slate-500 group-hover:text-white" />
-        </button>
-
-        <button
           onClick={() => handleNav('/settings')}
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors group cursor-pointer"
         >

@@ -89,12 +89,6 @@ export const SECONDARY_NAV_ITEMS = [
     icon: FiUser,
   },
   {
-    id: 'auth',
-    label: 'Database & Account',
-    path: '/auth',
-    icon: FiDatabase,
-  },
-  {
     id: 'settings',
     label: 'Voice Settings',
     path: '/settings',

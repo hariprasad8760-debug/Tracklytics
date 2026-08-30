@@ -17,7 +17,7 @@
  * ============================================================================
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useUserProfile } from '../../context/UserProfileContext';
 import { useVoice } from '../../context/VoiceContext';
 import GlassCard from '../../components/common/GlassCard';
@@ -31,24 +31,22 @@ import {
   FiClock,
   FiDollarSign,
   FiMic,
-  FiShare2,
   FiDownload,
-  FiRefreshCw,
   FiMapPin,
   FiMail,
-  FiPhone,
   FiGlobe,
   FiGithub,
   FiLinkedin,
   FiTwitter,
   FiZap,
-  FiShield,
   FiCheckCircle,
   FiCamera,
   FiX,
   FiTarget,
   FiActivity,
-  FiPlay
+  FiPlay,
+  FiUploadCloud,
+  FiImage
 } from 'react-icons/fi';
 
 const COVER_THEMES = [
@@ -81,6 +79,10 @@ export const ProfilePage = () => {
   const [coverTheme, setCoverTheme] = useState('aurora');
   const [toastMessage, setToastMessage] = useState('');
   const [selectedHeatmapDay, setSelectedHeatmapDay] = useState(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  // File input ref for laptop image selection
+  const fileInputRef = useRef(null);
 
   // Local form state for editing
   const [formData, setFormData] = useState({ ...profile });
@@ -116,6 +118,62 @@ export const ProfilePage = () => {
     }
   };
 
+  // Handle image upload from user's computer/laptop
+  const processImageFile = (file) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      triggerToast('⚠️ Please choose an image file (PNG, JPG, JPEG, WEBP, GIF)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      triggerToast('⚠️ Image size must be under 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = event.target?.result;
+      if (base64Data) {
+        updateAvatar(base64Data);
+        setShowAvatarModal(false);
+        triggerToast('Profile picture uploaded from your laptop! 📸✨');
+      }
+    };
+    reader.onerror = () => {
+      triggerToast('⚠️ Error reading image file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileInputChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageFile(file);
+      e.target.value = '';
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+  };
+
   const handleClaimDailyStreak = () => {
     const success = claimStreakReward();
     if (success) {
@@ -148,6 +206,15 @@ export const ProfilePage = () => {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-16">
+      {/* Hidden File Input for Device/Laptop Image Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileInputChange}
+        accept="image/*"
+        className="hidden"
+      />
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl bg-slate-900/95 border border-purple-500/50 text-white text-sm shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-5">
@@ -203,29 +270,46 @@ export const ProfilePage = () => {
             {/* Avatar & Core Identity */}
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
               {/* Avatar with Status & Edit Ring */}
-              <div className="relative group">
-                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl p-1 bg-gradient-to-tr from-purple-500 via-indigo-400 to-pink-500 shadow-2xl">
-                  <img
-                    src={profile.avatarUrl}
-                    alt={profile.fullName}
-                    className="w-full h-full rounded-[22px] object-cover bg-slate-900 border-2 border-slate-900"
+              <div className="flex flex-col items-center">
+                <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl p-1 bg-gradient-to-tr from-purple-500 via-indigo-400 to-pink-500 shadow-2xl">
+                    <img
+                      src={profile.avatarUrl}
+                      alt={profile.fullName}
+                      className="w-full h-full rounded-[22px] object-cover bg-slate-900 border-2 border-slate-900"
+                    />
+                  </div>
+
+                  {/* Status Dot */}
+                  <span
+                    className="absolute bottom-2 right-2 w-5 h-5 rounded-full border-2 border-slate-900 shadow-md flex items-center justify-center text-[10px]"
+                    style={{ backgroundColor: currentStatus.color }}
+                    title={`Status: ${currentStatus.label}`}
                   />
+
+                  {/* Change Avatar Button Overlay - Directly triggers File Manager */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="absolute inset-0 rounded-3xl bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-xs font-semibold gap-1 transition-opacity backdrop-blur-xs cursor-pointer"
+                    title="Open Laptop File Manager"
+                  >
+                    <FiUploadCloud className="w-6 h-6 text-purple-300 animate-bounce" />
+                    <span className="text-[11px] font-bold">Choose from PC</span>
+                  </button>
                 </div>
 
-                {/* Status Dot */}
-                <span
-                  className="absolute bottom-2 right-2 w-5 h-5 rounded-full border-2 border-slate-900 shadow-md flex items-center justify-center text-[10px]"
-                  style={{ backgroundColor: currentStatus.color }}
-                  title={`Status: ${currentStatus.label}`}
-                />
-
-                {/* Change Avatar Button Overlay */}
+                {/* Direct Laptop Image Picker Button */}
                 <button
-                  onClick={() => setShowAvatarModal(true)}
-                  className="absolute inset-0 rounded-3xl bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-xs font-semibold gap-1 transition-opacity backdrop-blur-xs cursor-pointer"
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mt-2.5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-200 text-[11px] font-bold transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95"
                 >
-                  <FiCamera className="w-5 h-5" />
-                  <span>Change</span>
+                  <FiImage className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Choose Image</span>
                 </button>
               </div>
 
@@ -724,10 +808,10 @@ export const ProfilePage = () => {
 
       {/* ── 7. BIO & CONNECTIVITY ───────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Bio & Location Card */}
+        {/* Bio & Summary Card */}
         <GlassCard>
           <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-            <FiUser className="text-purple-400" /> Bio & System Synchronizer
+            <FiUser className="text-purple-400" /> Bio & Preferences
           </h3>
           <p className="text-sm text-slate-300 leading-relaxed italic bg-white/5 p-4 rounded-2xl border border-white/10">
             "{profile.bio}"
@@ -739,20 +823,13 @@ export const ProfilePage = () => {
               <span className="font-semibold text-white">{profile.joinedDate}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-white/5">
-              <span className="text-slate-400">Status</span>
+              <span className="text-slate-400">Current Status</span>
               <span className="font-semibold text-emerald-400 flex items-center gap-1">
                 {currentStatus.emoji} {currentStatus.label}
               </span>
             </div>
-            <div className="flex items-center justify-between py-2 border-b border-white/5">
-              <span className="text-slate-400">MySQL Database</span>
-              <span className="font-mono text-[11px] text-emerald-400 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                tracklytics_db (Port 3306)
-              </span>
-            </div>
             <div className="flex items-center justify-between py-2">
-              <span className="text-slate-400">Voice Language & Engine</span>
+              <span className="text-slate-400">Voice Assistant Engine</span>
               <span className="font-mono text-[11px] text-purple-300">en-IN (Continuous MAPLA)</span>
             </div>
           </div>
@@ -766,7 +843,7 @@ export const ProfilePage = () => {
 
           <div className="space-y-3">
             <a
-              href={profile.socialLinks.github}
+              href={profile.socialLinks?.github || 'https://github.com'}
               target="_blank"
               rel="noreferrer"
               className="flex items-center justify-between p-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs text-slate-200"
@@ -779,7 +856,7 @@ export const ProfilePage = () => {
             </a>
 
             <a
-              href={profile.socialLinks.linkedin}
+              href={profile.socialLinks?.linkedin || 'https://linkedin.com'}
               target="_blank"
               rel="noreferrer"
               className="flex items-center justify-between p-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs text-slate-200"
@@ -792,7 +869,7 @@ export const ProfilePage = () => {
             </a>
 
             <a
-              href={profile.socialLinks.twitter}
+              href={profile.socialLinks?.twitter || 'https://x.com'}
               target="_blank"
               rel="noreferrer"
               className="flex items-center justify-between p-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs text-slate-200"
@@ -807,64 +884,92 @@ export const ProfilePage = () => {
         </GlassCard>
       </div>
 
-      {/* ── 8. AVATAR SELECTOR MODAL ────────────────────────────────────────── */}
-      {showAvatarModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-purple-500/40 p-6 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <FiCamera className="text-purple-400" /> Choose Profile Avatar
-              </h3>
+      {/* ── 8. AVATAR & PHOTO CUSTOMIZER SECTION ──────────────────────────── */}
+      <GlassCard className="border-purple-500/30">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-4 mb-5">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <FiCamera className="text-purple-400" /> Profile Picture & Character Gallery
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Upload any photo directly from your laptop or select a character preset
+            </p>
+          </div>
+
+          <GlassButton
+            variant="primary"
+            size="sm"
+            icon={FiUploadCloud}
+            onClick={() => fileInputRef.current?.click()}
+            className="cursor-pointer"
+          >
+            Upload from Laptop
+          </GlassButton>
+        </div>
+
+        {/* Laptop Drag & Drop Zone */}
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onClick={() => fileInputRef.current?.click()}
+          className={`p-6 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center cursor-pointer mb-6 ${
+            isDraggingOver
+              ? 'border-purple-400 bg-purple-500/20 scale-[1.01]'
+              : 'border-purple-500/40 hover:border-purple-400 bg-black/20 hover:bg-purple-950/20'
+          }`}
+        >
+          <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 mb-2">
+            <FiUploadCloud className="w-6 h-6 text-purple-400" />
+          </div>
+          <p className="text-sm font-bold text-white">
+            Click to choose photo from your laptop / PC
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            PNG, JPG, JPEG, WEBP, GIF (Max 10MB) • Or drag & drop here
+          </p>
+        </div>
+
+        {/* Character Presets Grid */}
+        <div className="space-y-3">
+          <span className="text-xs font-semibold text-slate-300 block">
+            Or choose a 3D Cyber character:
+          </span>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            {avatarPresets.map((preset) => (
               <button
-                onClick={() => setShowAvatarModal(false)}
-                className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer"
+                key={preset.id}
+                type="button"
+                onClick={() => handleSelectPreset(preset.url)}
+                className={`relative rounded-2xl overflow-hidden border-2 transition-all p-1 group cursor-pointer ${
+                  profile.avatarUrl === preset.url
+                    ? 'border-purple-500 ring-2 ring-purple-500/50 scale-105 bg-purple-500/20'
+                    : 'border-white/10 hover:border-white/30 bg-white/5'
+                }`}
               >
-                <FiX className="w-5 h-5" />
+                <img src={preset.url} alt={preset.name} className="w-full h-16 rounded-xl object-cover" />
+                <span className="block text-[10px] text-center font-medium text-slate-300 mt-1 truncate">
+                  {preset.name.split(' ')[0]}
+                </span>
               </button>
-            </div>
-
-            {/* Presets Grid */}
-            <div>
-              <p className="text-xs text-slate-400 mb-3">Select from 3D & Cyberpunk character presets:</p>
-              <div className="grid grid-cols-3 gap-3">
-                {avatarPresets.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => handleSelectPreset(preset.url)}
-                    className={`relative rounded-2xl overflow-hidden border-2 transition-all p-1 group cursor-pointer ${
-                      profile.avatarUrl === preset.url
-                        ? 'border-purple-500 ring-2 ring-purple-500/50 scale-105'
-                        : 'border-white/10 hover:border-white/30'
-                    }`}
-                  >
-                    <img src={preset.url} alt={preset.name} className="w-full h-20 rounded-xl object-cover" />
-                    <span className="block text-[10px] text-center font-medium text-slate-300 mt-1 truncate">
-                      {preset.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Custom URL Input */}
-            <form onSubmit={handleCustomAvatarSubmit} className="pt-3 border-t border-white/10 space-y-2">
-              <label className="block text-xs font-semibold text-slate-300">Or paste custom Image URL:</label>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={customAvatarUrl}
-                  onChange={(e) => setCustomAvatarUrl(e.target.value)}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                />
-                <GlassButton type="submit" variant="primary" size="sm">
-                  Apply
-                </GlassButton>
-              </div>
-            </form>
+            ))}
           </div>
         </div>
-      )}
+
+        {/* Custom URL Input */}
+        <form onSubmit={handleCustomAvatarSubmit} className="pt-4 mt-5 border-t border-white/10 flex flex-col sm:flex-row gap-2.5 items-center">
+          <input
+            type="url"
+            placeholder="Or paste any custom image URL (https://...)"
+            value={customAvatarUrl}
+            onChange={(e) => setCustomAvatarUrl(e.target.value)}
+            className="w-full flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500"
+          />
+          <GlassButton type="submit" variant="secondary" size="sm" className="w-full sm:w-auto shrink-0">
+            Apply URL
+          </GlassButton>
+        </form>
+      </GlassCard>
     </div>
   );
 };
