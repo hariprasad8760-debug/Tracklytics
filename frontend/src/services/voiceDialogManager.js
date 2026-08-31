@@ -158,7 +158,7 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
 
       return {
         type: 'DIALOG_RESPONSE',
-        responseText: `Got it. $${amount} ${category} expense.`,
+        responseText: `Got it. ₹${amount} ${category} expense.`,
         nextFlow: null, // Flow completed! Ready for next command
         shouldKeepListening: true,
         actionPayload: {
@@ -221,7 +221,7 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
     if (amount !== null && hasCategory.length > 2) {
       return {
         type: 'DIALOG_RESPONSE',
-        responseText: `Got it. $${amount} ${hasCategory} expense.`,
+        responseText: `Got it. ₹${amount} ${hasCategory} expense.`,
         nextFlow: null,
         shouldKeepListening: true,
         actionPayload: {

@@ -36,7 +36,7 @@ export const ExpensePage = () => {
     {
       id: 'tx-1',
       title: 'ChatGPT Plus Subscription',
-      amount: 20.00,
+      amount: 1999.00,
       category: 'Software Subscriptions',
       expenseDate: '2026-07-26',
       paymentMethod: 'Credit Card',
@@ -46,7 +46,7 @@ export const ExpensePage = () => {
     {
       id: 'tx-2',
       title: 'Claude Pro Plan',
-      amount: 20.00,
+      amount: 1999.00,
       category: 'Software Subscriptions',
       expenseDate: '2026-07-25',
       paymentMethod: 'Credit Card',
@@ -56,7 +56,7 @@ export const ExpensePage = () => {
     {
       id: 'tx-3',
       title: 'Spring Boot 3 Masterclass Book',
-      amount: 45.50,
+      amount: 4500.00,
       category: 'Education / Books',
       expenseDate: '2026-07-24',
       paymentMethod: 'Debit Card',
@@ -66,7 +66,7 @@ export const ExpensePage = () => {
     {
       id: 'tx-4',
       title: 'Starbucks Study Cafe',
-      amount: 14.75,
+      amount: 650.00,
       category: 'Dining & Coffee',
       expenseDate: '2026-07-23',
       paymentMethod: 'UPI / Contactless',
@@ -76,7 +76,7 @@ export const ExpensePage = () => {
     {
       id: 'tx-5',
       title: 'Udemy React Architecture Course',
-      amount: 29.99,
+      amount: 2499.00,
       category: 'Education / Books',
       expenseDate: '2026-07-20',
       paymentMethod: 'Credit Card',
@@ -343,7 +343,7 @@ export const ExpensePage = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Amount ($)</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Amount (₹)</label>
                   <input
                     type="number"
                     step="0.01"

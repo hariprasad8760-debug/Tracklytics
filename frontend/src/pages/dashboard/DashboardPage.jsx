@@ -37,7 +37,7 @@ export const DashboardPage = () => {
   const { profile, statusOptions } = useUserProfile();
 
   // Real-Time Data State
-  const [totals, setTotals] = useState(realtimeDb.getDashboardTotals());
+  const [totals, setTotals] = useState(realtimeDb.getDashboardTotals(profile.currency || 'INR'));
 
   // Modal State: null | 'studyGraph' | 'expenseGraph' | 'overview' | 'addExpense' | 'addStudy'
   const [activeModal, setActiveModal] = useState(null);
@@ -50,7 +50,7 @@ export const DashboardPage = () => {
   const [toastMessage, setToastMessage] = useState('');
 
   const refreshData = () => {
-    setTotals(realtimeDb.getDashboardTotals());
+    setTotals(realtimeDb.getDashboardTotals(profile.currency || 'INR'));
   };
 
   useEffect(() => {

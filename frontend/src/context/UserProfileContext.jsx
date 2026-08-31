@@ -61,6 +61,18 @@ export const STATUS_OPTIONS = [
   { id: 'busy', label: 'Do Not Disturb', emoji: '🔴', color: '#ef4444', desc: 'In a deep session' },
 ];
 
+export const CURRENCY_OPTIONS = [
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee (INR)', locale: 'en-IN', flag: '🇮🇳' },
+  { code: 'USD', symbol: '$', name: 'US Dollar (USD)', locale: 'en-US', flag: '🇺🇸' },
+  { code: 'EUR', symbol: '€', name: 'Euro (EUR)', locale: 'de-DE', flag: '🇪🇺' },
+  { code: 'GBP', symbol: '£', name: 'British Pound (GBP)', locale: 'en-GB', flag: '🇬🇧' },
+  { code: 'JPY', symbol: '¥', name: 'Japanese Yen (JPY)', locale: 'ja-JP', flag: '🇯🇵' },
+  { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar (CAD)', locale: 'en-CA', flag: '🇨🇦' },
+  { code: 'AUD', symbol: 'AU$', name: 'Australian Dollar (AUD)', locale: 'en-AU', flag: '🇦🇺' },
+  { code: 'AED', symbol: 'AED', name: 'UAE Dirham (AED)', locale: 'ar-AE', flag: '🇦🇪' },
+  { code: 'SGD', symbol: 'SG$', name: 'Singapore Dollar (SGD)', locale: 'en-SG', flag: '🇸🇬' },
+];
+
 export const INITIAL_BADGES = [
   {
     id: 'badge-1',
@@ -310,6 +322,17 @@ export const UserProfileProvider = ({ children }) => {
     return rewardGiven;
   }, []);
 
+  // Update Currency & Symbol
+  const updateCurrency = useCallback((currencyCode) => {
+    const opt = CURRENCY_OPTIONS.find((c) => c.code === currencyCode) || CURRENCY_OPTIONS[0];
+    setProfile((prev) => ({
+      ...prev,
+      currency: opt.code,
+      currencySymbol: opt.symbol,
+      currencyLocale: opt.locale,
+    }));
+  }, []);
+
   // Reset to default
   const resetProfile = useCallback(() => {
     setProfile(DEFAULT_PROFILE);
@@ -323,12 +346,14 @@ export const UserProfileProvider = ({ children }) => {
     updateProfile,
     updateAvatar,
     updateStatus,
+    updateCurrency,
     addXp,
     toggleHabit,
     claimStreakReward,
     resetProfile,
     avatarPresets: AVATAR_PRESETS,
     statusOptions: STATUS_OPTIONS,
+    currencyOptions: CURRENCY_OPTIONS,
   };
 
   return (

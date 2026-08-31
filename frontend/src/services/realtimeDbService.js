@@ -11,13 +11,14 @@
  */
 
 import apiClient from './api';
+import { formatCurrency } from '../utils/formatters';
 
 // Initial Seed Data if local DB is empty
 const INITIAL_EXPENSES = [
-  { id: 'exp-1', title: 'ChatGPT Plus Subscription', amount: 20.00, category: 'Software & AI Tools', date: new Date().toISOString().split('T')[0], icon: 'code' },
-  { id: 'exp-2', title: 'Claude Pro Subscription', amount: 20.00, category: 'Software & AI Tools', date: new Date(Date.now() - 86400000).toISOString().split('T')[0], icon: 'code' },
-  { id: 'exp-3', title: 'Spring Boot Microservices Course', amount: 89.99, category: 'Education & Courses', date: new Date(Date.now() - 172800000).toISOString().split('T')[0], icon: 'book' },
-  { id: 'exp-4', title: 'Starbucks Study Cafe', amount: 14.50, category: 'Dining & Coffee Study', date: new Date(Date.now() - 259200000).toISOString().split('T')[0], icon: 'coffee' }
+  { id: 'exp-1', title: 'ChatGPT Plus Subscription', amount: 1999.00, category: 'Software & AI Tools', date: new Date().toISOString().split('T')[0], icon: 'code' },
+  { id: 'exp-2', title: 'Claude Pro Subscription', amount: 1999.00, category: 'Software & AI Tools', date: new Date(Date.now() - 86400000).toISOString().split('T')[0], icon: 'code' },
+  { id: 'exp-3', title: 'Spring Boot Microservices Course', amount: 4500.00, category: 'Education & Courses', date: new Date(Date.now() - 172800000).toISOString().split('T')[0], icon: 'book' },
+  { id: 'exp-4', title: 'Starbucks Study Cafe', amount: 650.00, category: 'Dining & Coffee Study', date: new Date(Date.now() - 259200000).toISOString().split('T')[0], icon: 'coffee' }
 ];
 
 const INITIAL_STUDY = [
@@ -94,7 +95,7 @@ export const realtimeDb = {
   // --------------------------------------------------------------------------
   // 3. GET REAL-TIME TOTALS FOR DASHBOARD CARDS
   // --------------------------------------------------------------------------
-  getDashboardTotals: () => {
+  getDashboardTotals: (currencyCode = 'INR') => {
     const expenses = realtimeDb.getExpenses();
     const study = realtimeDb.getStudySessions();
 
@@ -105,7 +106,8 @@ export const realtimeDb = {
     }, 0);
 
     return {
-      totalExpenseFormatted: `$${totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      totalExpenseRaw: totalExpense,
+      totalExpenseFormatted: formatCurrency(totalExpense, currencyCode),
       totalStudyHoursFormatted: `${totalStudyHours.toFixed(1)} hrs`,
       focusScore: '94.2%',
       expensesList: expenses,

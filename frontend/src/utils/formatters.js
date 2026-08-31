@@ -18,19 +18,48 @@
  */
 
 /**
- * Formats a number into a localized currency string.
- * @param {number} amount - The numerical value to format.
- * @param {string} currency - Currency symbol or ISO code (default: 'USD').
- * @returns {string} Formatted currency string.
+ * Map of standard currency symbols
  */
-export const formatCurrency = (amount, currency = 'USD') => {
-  if (amount === undefined || amount === null || isNaN(amount)) return '$0.00';
-  
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-    maximumFractionDigits: 2,
-  }).format(amount);
+export const CURRENCY_SYMBOLS = {
+  INR: '₹',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  JPY: '¥',
+  CAD: 'CA$',
+  AUD: 'AU$',
+  AED: 'AED ',
+  SGD: 'SG$',
+  CNY: '¥',
+};
+
+/**
+ * Formats a number into a localized currency string. Defaults to Indian Rupee (₹ / INR).
+ * @param {number} amount - The numerical value to format.
+ * @param {string} currency - Currency symbol or ISO code (default: 'INR').
+ * @param {string} [locale] - Optional locale (e.g. 'en-IN', 'en-US').
+ * @returns {string} Formatted currency string (e.g. "₹4,520.00").
+ */
+export const formatCurrency = (amount, currency = 'INR', locale) => {
+  const num = typeof amount === 'number' ? amount : parseFloat(amount);
+  const code = (currency || 'INR').toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code] || (code.length <= 3 ? code + ' ' : '₹');
+
+  if (isNaN(num)) {
+    return `${symbol}0.00`;
+  }
+
+  const loc = locale || (code === 'INR' ? 'en-IN' : code === 'EUR' ? 'de-DE' : code === 'GBP' ? 'en-GB' : code === 'JPY' ? 'ja-JP' : 'en-US');
+
+  try {
+    return new Intl.NumberFormat(loc, {
+      style: 'currency',
+      currency: code,
+      maximumFractionDigits: 2,
+    }).format(num);
+  } catch {
+    return `${symbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
 };
 
 /**

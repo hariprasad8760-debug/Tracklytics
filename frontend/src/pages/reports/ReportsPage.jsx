@@ -28,7 +28,7 @@ export const ReportsPage = () => {
   const handleExportCSV = () => {
     setIsExporting(true);
     setTimeout(() => {
-      const csvData = `ID,Type,Title,Amount/Duration,Date,Category/Subject\n1,Expense,ChatGPT Plus,$20.00,2026-07-26,Software Subscriptions\n2,Expense,Claude Pro,$20.00,2026-07-25,Software Subscriptions\n3,Study,Spring Boot Security,120 mins,2026-07-26,Spring Boot Architecture\n4,Study,React Hooks,90 mins,2026-07-25,React & System Design\n`;
+      const csvData = `ID,Type,Title,Amount/Duration,Date,Category/Subject\n1,Expense,ChatGPT Plus,₹1999.00,2026-07-26,Software Subscriptions\n2,Expense,Claude Pro,₹1999.00,2026-07-25,Software Subscriptions\n3,Study,Spring Boot Security,120 mins,2026-07-26,Spring Boot Architecture\n4,Study,React Hooks,90 mins,2026-07-25,React & System Design\n`;
 
       const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);

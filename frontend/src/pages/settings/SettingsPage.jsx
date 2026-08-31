@@ -17,6 +17,7 @@ import React, { useState } from 'react';
 import GlassCard from '../../components/common/GlassCard';
 import GlassButton from '../../components/common/GlassButton';
 import { useVoice } from '../../context/VoiceContext';
+import { useUserProfile } from '../../context/UserProfileContext';
 import {
   FiMic,
   FiCheck,
@@ -27,7 +28,8 @@ import {
   FiClock,
   FiVolume2,
   FiRepeat,
-  FiMessageSquare
+  FiMessageSquare,
+  FiGlobe
 } from 'react-icons/fi';
 
 const PRESET_WORDS = ['MAPLA', 'TRACKLYTICS', 'ZENO', 'NOVA', 'HEY TRACK'];
@@ -41,7 +43,7 @@ const CONVERSATION_EXAMPLES = [
       { speaker: 'You', text: '“500”' },
       { speaker: 'Assistant', text: '“What was it for?”' },
       { speaker: 'You', text: '“Food”' },
-      { speaker: 'Assistant', text: '“Got it. $500 food expense.” → Keeps listening' },
+      { speaker: 'Assistant', text: '"Got it. ₹500 food expense." 🔁 Keeps listening' },
     ],
   },
   {
@@ -83,6 +85,8 @@ export const SettingsPage = () => {
     updateAssistantVoice,
     activateVoiceMode,
   } = useVoice();
+
+  const { profile, currencyOptions, updateCurrency } = useUserProfile();
 
   const [editMode, setEditMode] = useState(false);
   const [draft, setDraft] = useState(wakeWord);
@@ -427,6 +431,58 @@ export const SettingsPage = () => {
                 ))}
               </div>
             </div>
+          ))}
+        </div>
+      </GlassCard>
+
+      {/* ── CURRENCY & REGIONAL PREFERENCES ─────────────────────────────── */}
+      <GlassCard className="space-y-5">
+        <div className="flex items-center gap-3 pb-4 border-b border-white/10">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+            <FiGlobe className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">Currency & Regional Preferences</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Select your preferred currency for all expense tracking</p>
+          </div>
+        </div>
+
+        {/* Active Currency Display */}
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+          <span className="text-2xl font-bold text-emerald-400">{profile.currencySymbol || '₹'}</span>
+          <div>
+            <p className="text-sm font-semibold text-white">{profile.currency || 'INR'} — Active Currency</p>
+            <p className="text-[11px] text-slate-400">All amounts across the app use this currency</p>
+          </div>
+        </div>
+
+        {/* Currency Chips */}
+        <div className="flex flex-wrap gap-2">
+          {(currencyOptions || [
+            { code: 'INR', symbol: '₹', label: 'Indian Rupee' },
+            { code: 'USD', symbol: '$', label: 'US Dollar' },
+            { code: 'EUR', symbol: '€', label: 'Euro' },
+            { code: 'GBP', symbol: '£', label: 'British Pound' },
+            { code: 'JPY', symbol: '¥', label: 'Japanese Yen' },
+            { code: 'CAD', symbol: 'CA$', label: 'Canadian Dollar' },
+            { code: 'AUD', symbol: 'AU$', label: 'Australian Dollar' },
+            { code: 'AED', symbol: 'د.إ', label: 'UAE Dirham' },
+            { code: 'SGD', symbol: 'SG$', label: 'Singapore Dollar' },
+          ]).map((opt) => (
+            <button
+              key={opt.code}
+              onClick={() => {
+                updateCurrency(opt.code);
+                triggerToast(`Currency changed to ${opt.symbol} ${opt.code}`);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                (profile.currency || 'INR') === opt.code
+                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-lg shadow-emerald-500/10'
+                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:border-white/20'
+              }`}
+            >
+              {opt.symbol} {opt.code}
+            </button>
           ))}
         </div>
       </GlassCard>

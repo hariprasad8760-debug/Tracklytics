@@ -49,7 +49,7 @@ export const NAV_ITEMS = [
     label: 'Expenses',
     path: '/expense',
     icon: FiDollarSign,
-    badge: '$4.2k',
+    badge: '₹18k',
   },
   {
     id: 'study',

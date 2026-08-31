@@ -61,7 +61,7 @@ export const AnalyticsPage = () => {
               <FiZap className="w-4 h-4" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">3.21 hrs / $10</h3>
+          <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">3.21 hrs / ₹500</h3>
           <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
             <FiTrendingUp /> +18.2% ROI efficiency rating
           </p>
@@ -74,7 +74,7 @@ export const AnalyticsPage = () => {
               <FiDollarSign className="w-4 h-4" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">$4,520.00</h3>
+          <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">₹18,450.00</h3>
           <p className="text-[11px] text-slate-400 mt-1">Within monthly budget limit</p>
         </GlassCard>
 
@@ -108,7 +108,7 @@ export const AnalyticsPage = () => {
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-200 font-semibold">Software & AI Tools</span>
-                <span className="font-mono text-purple-300">$1,850.00 (41%)</span>
+                <span className="font-mono text-purple-300">₹7,500.00 (41%)</span>
               </div>
               <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
                 <div className="h-full bg-purple-500 rounded-full" style={{ width: '41%' }} />
@@ -118,7 +118,7 @@ export const AnalyticsPage = () => {
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-200 font-semibold">Education & Courses</span>
-                <span className="font-mono text-blue-300">$1,420.00 (31%)</span>
+                <span className="font-mono text-blue-300">₹5,700.00 (31%)</span>
               </div>
               <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
                 <div className="h-full bg-blue-500 rounded-full" style={{ width: '31%' }} />
@@ -128,7 +128,7 @@ export const AnalyticsPage = () => {
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-200 font-semibold">Dining & Coffee Study</span>
-                <span className="font-mono text-cyan-300">$750.00 (17%)</span>
+                <span className="font-mono text-cyan-300">₹3,100.00 (17%)</span>
               </div>
               <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
                 <div className="h-full bg-cyan-500 rounded-full" style={{ width: '17%' }} />
@@ -138,7 +138,7 @@ export const AnalyticsPage = () => {
             <div>
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-slate-200 font-semibold">General & Books</span>
-                <span className="font-mono text-emerald-300">$500.00 (11%)</span>
+                <span className="font-mono text-emerald-300">₹2,150.00 (11%)</span>
               </div>
               <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden">
                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: '11%' }} />
@@ -161,7 +161,7 @@ export const AnalyticsPage = () => {
                   <FiCheck className="text-emerald-400" /> High ROI Investment
                 </span>
                 <p className="text-slate-300">
-                  Your $40 AI tool spend correlated with a <strong>24% increase</strong> in logged Spring Boot study hours this week.
+                  Your ₹3,998 AI tool spend correlated with a <strong>24% increase</strong> in logged Spring Boot study hours this week.
                 </p>
               </div>
 
