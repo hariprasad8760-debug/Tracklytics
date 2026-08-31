@@ -26,13 +26,13 @@ const SpeechRecognitionAPI =
     ? window.SpeechRecognition || window.webkitSpeechRecognition || null
     : null;
 
-// ─── COMPREHENSIVE PHONETIC VARIATIONS FOR "MAPLA" ───────────────────────────
-// Indian English / browser STT commonly mishears "MAPLA" as many things.
-// We match ALL of them.
+// ─── COMPREHENSIVE PHONETIC VARIATIONS FOR "MAPLA" & "LUNA" ──────────────────
+// Indian English / browser STT commonly mishears "MAPLA" or "LUNA" as many things.
+// We match ALL of them so activation is instantaneous and reliable.
 const MAPLA_VARIATIONS = [
   'MAPLA', 'MAAPLA', 'MAPLAH', 'MAPLE', 'MAPLES',
   'MAP LA', 'MAP-LA', 'MAP LAH', 'MAP LAW',
-  'MOPLA', 'MOPLA', 'MOBLA', 'MOBILA',
+  'MOPLA', 'MOBLA', 'MOBILA', 'MARPLA',
   'MARPLE', 'MARLA', 'MATLA', 'MATHLA', 'MAFLA', 'MABLA',
   'MAP L', 'MAPLE A', 'MAPLE AH', 'MAPLE AY',
   'MAHPLA', 'MOP LA', 'MAKLA', 'MALA',
@@ -43,43 +43,59 @@ const MAPLA_VARIATIONS = [
   'MOKKA', 'MACLA', 'MAPNA', 'APPLA', 'AAPLA',
   'MAMA', 'MANLA', 'MAPPA', 'MAMPLA', 'MABLA',
   'TABLA', 'SABLA', 'KAPLA', 'PAMLA',
+  'HEY MAPLA', 'OK MAPLA', 'HELLO MAPLA', 'HI MAPLA',
+  'MAPLA LISTENING', 'MAPLA LISTEN',
 ];
 
+const LUNA_VARIATIONS = [
+  'LUNA', 'LOONA', 'LUNAR', 'LUNAA', 'LUNA LISTENING', 'LUNA LISTEN',
+  'HEY LUNA', 'OK LUNA', 'HELLO LUNA', 'HI LUNA', 'DEAR LUNA',
+  'LUNAS', 'LUNA ASSISTANT', 'LUNA BOT', 'LUNAR BOT',
+  'LU NA', 'LOO NA', 'LUN', 'LUNAH', 'LOONAH',
+];
+
+const ALL_WAKE_WORDS = [...MAPLA_VARIATIONS, ...LUNA_VARIATIONS, 'TRACKLYTICS', 'HEY TRACKLYTICS'];
+
 function matchesWakeWord(spokenText, configuredWakeWord) {
-  if (!spokenText || !configuredWakeWord) return false;
+  if (!spokenText) return false;
 
   const cleanSpoken = spokenText
     .toUpperCase()
     .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  const cleanTarget = configuredWakeWord.toUpperCase().trim();
 
-  // 1. Direct substring inclusion
-  if (cleanSpoken.includes(cleanTarget)) return true;
+  const cleanConfig = (configuredWakeWord || 'MAPLA').toUpperCase().trim();
 
-  // 2. All phonetic variations
-  if (cleanTarget === 'MAPLA') {
-    for (const v of MAPLA_VARIATIONS) {
-      if (cleanSpoken.includes(v)) return true;
-    }
-    // Regex pattern: words starting with M, short word with P/B in middle
-    if (/\bm[aeiou][a-z]{0,3}l[aeiou]?\b/i.test(cleanSpoken)) return true;
-    if (/\bm[a-z]p[a-z]{0,2}[la]\b/i.test(cleanSpoken)) return true;
+  // 1. Direct match against configured wake word
+  if (cleanSpoken.includes(cleanConfig)) return true;
+
+  // 2. Direct match against ANY supported wake word (MAPLA, LUNA, etc.)
+  for (const v of ALL_WAKE_WORDS) {
+    if (cleanSpoken.includes(v)) return true;
   }
 
-  // 3. Token-by-token fuzzy distance (allow 1-char error)
+  // 3. Regex phonetic patterns for MAPLA
+  if (/\bm[aeiou][a-z]{0,3}l[aeiou]?\b/i.test(cleanSpoken)) return true;
+  if (/\bm[a-z]p[a-z]{0,2}[la]\b/i.test(cleanSpoken)) return true;
+
+  // 4. Regex phonetic patterns for LUNA
+  if (/\bl[uoo][n][ah]?\b/i.test(cleanSpoken)) return true;
+
+  // 5. Token fuzzy distance (allow 1-char edit distance)
   const tokens = cleanSpoken.split(' ');
+  const targets = [cleanConfig, 'MAPLA', 'LUNA'];
   for (const token of tokens) {
-    if (token === cleanTarget) return true;
-    if (cleanTarget.length >= 3 && token.length >= 3) {
-      // Levenshtein-ish: count chars different in same position + length diff
-      const minLen = Math.min(token.length, cleanTarget.length);
-      let diff = Math.abs(token.length - cleanTarget.length);
-      for (let i = 0; i < minLen; i++) {
-        if (token[i] !== cleanTarget[i]) diff++;
+    for (const target of targets) {
+      if (token === target) return true;
+      if (target.length >= 3 && token.length >= 3) {
+        const minLen = Math.min(token.length, target.length);
+        let diff = Math.abs(token.length - target.length);
+        for (let i = 0; i < minLen; i++) {
+          if (token[i] !== target[i]) diff++;
+        }
+        if (diff <= 1) return true;
       }
-      if (diff <= 1) return true;
     }
   }
 
@@ -88,11 +104,13 @@ function matchesWakeWord(spokenText, configuredWakeWord) {
 
 function extractTrailingCommand(spokenText, configuredWakeWord) {
   if (!spokenText) return '';
-  const allVariations = [configuredWakeWord, ...MAPLA_VARIATIONS];
-  for (const v of allVariations) {
-    const regex = new RegExp(`^.*?\\b${v}\\b\\s*`, 'i');
+  const allTargets = [configuredWakeWord, ...ALL_WAKE_WORDS];
+  for (const target of allTargets) {
+    if (!target) continue;
+    const regex = new RegExp(`^.*?\\b${target}\\b\\s*`, 'i');
     if (regex.test(spokenText)) {
-      return spokenText.replace(regex, '').trim();
+      const rest = spokenText.replace(regex, '').trim();
+      if (rest.length > 1) return rest;
     }
   }
   return '';
@@ -281,17 +299,23 @@ export const useVoiceAssistant = () => {
       rec.onresult = (event) => {
         resetInactivityTimer();
         let text = '';
+        let isFinal = false;
         for (let i = event.resultIndex; i < event.results.length; i++) {
           text += event.results[i][0].transcript + ' ';
+          if (event.results[i].isFinal) isFinal = true;
         }
         const cleanText = text.trim();
         updateTranscript(cleanText);
 
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         if (cleanText) {
+          // If browser finalized sentence, execute in 250ms; if interim silence, execute in 700ms
+          const delay = isFinal ? 250 : 700;
           silenceTimerRef.current = setTimeout(() => {
-            if (isVoiceModeActiveRef.current && cleanText) processTurn(cleanText);
-          }, 1800);
+            if (isVoiceModeActiveRef.current && cleanText) {
+              processTurn(cleanText);
+            }
+          }, delay);
         }
       };
 
@@ -311,8 +335,6 @@ export const useVoiceAssistant = () => {
   }, [stopActiveListener, resetInactivityTimer, setMicPermission, updateTranscript, processTurn]);
 
   // ─── START BACKGROUND WATCHER ─────────────────────────────────────────────
-  // Uses SHORT non-continuous sessions that auto-restart.
-  // This is more reliable in Chrome than one long continuous session.
   const startBackgroundWatcher = useCallback(() => {
     if (!SpeechRecognitionAPI) return;
     if (!wakeWordEnabledRef.current) return;
@@ -326,10 +348,10 @@ export const useVoiceAssistant = () => {
 
       try {
         const rec = new SpeechRecognitionAPI();
-        rec.continuous = false;    // Short session — more reliable
+        rec.continuous = true;
         rec.interimResults = true;
-        rec.maxAlternatives = 5;   // Get more alternatives to widen matching
-        rec.lang = 'en-IN';        // Indian English
+        rec.maxAlternatives = 5;
+        rec.lang = 'en-IN';
 
         rec.onstart = () => {
           setMicPermission('granted');
@@ -337,13 +359,12 @@ export const useVoiceAssistant = () => {
 
         rec.onresult = (event) => {
           for (let i = event.resultIndex; i < event.results.length; i++) {
-            // Check ALL alternatives from each result
             for (let j = 0; j < event.results[i].length; j++) {
               const spoken = event.results[i][j].transcript;
 
               if (matchesWakeWord(spoken, wakeWordRef.current)) {
                 const now = Date.now();
-                if (now - lastTriggerTimeRef.current > 2000) {
+                if (now - lastTriggerTimeRef.current > 1500) {
                   lastTriggerTimeRef.current = now;
 
                   const trailingCommand = extractTrailingCommand(spoken, wakeWordRef.current);
@@ -359,6 +380,7 @@ export const useVoiceAssistant = () => {
                       voiceType: assistantVoiceRef.current,
                       onEnd: () => {
                         if (isVoiceModeActiveRef.current) {
+                          updateTranscript('');
                           setConversationState('LISTENING');
                           startActiveListener();
                         }
@@ -378,12 +400,10 @@ export const useVoiceAssistant = () => {
             isWatcherRunningRef.current = false;
             return;
           }
-          // For no-speech, network, aborted — just let onend restart it
         };
 
         rec.onend = () => {
           if (isWatcherRunningRef.current && !isVoiceModeActiveRef.current) {
-            // Restart immediately (100ms gap to avoid browser throttle)
             restartTimerRef.current = setTimeout(runSession, 100);
           }
         };
@@ -391,9 +411,8 @@ export const useVoiceAssistant = () => {
         backgroundRecRef.current = rec;
         rec.start();
       } catch (err) {
-        // If start() throws, retry after a short delay
-        if (isWatcherRunningRef.current) {
-          restartTimerRef.current = setTimeout(runSession, 500);
+        if (isWatcherRunningRef.current && !isVoiceModeActiveRef.current) {
+          restartTimerRef.current = setTimeout(runSession, 400);
         }
       }
     };

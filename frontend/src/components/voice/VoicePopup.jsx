@@ -149,7 +149,10 @@ export const VoicePopup = () => {
               }}
             />
             <span className="text-xs font-extrabold tracking-wider uppercase text-white flex items-center gap-1.5 font-mono">
-              <span>Voice Assistant</span>
+              <span className="text-purple-300 flex items-center gap-1">
+                <FiZap className="w-3.5 h-3.5 text-yellow-400" />
+                <span>Luna</span>
+              </span>
               <span className="text-slate-400 font-normal">·</span>
               <span
                 className={
@@ -157,15 +160,15 @@ export const VoicePopup = () => {
                     ? 'text-emerald-300 font-bold'
                     : isProcessing
                       ? 'text-amber-300 font-bold'
-                      : 'text-purple-300'
+                      : 'text-pink-300 font-bold animate-pulse'
                 }
               >
                 {isSpeaking
-                  ? 'Speaking…'
+                  ? 'Luna Speaking…'
                   : isProcessing
-                    ? 'Processing…'
+                    ? 'Luna Processing…'
                     : isListening
-                      ? 'Listening…'
+                      ? 'Luna is Listening…'
                       : 'Idle'}
               </span>
             </span>
@@ -186,7 +189,7 @@ export const VoicePopup = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={deactivateVoiceMode}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-200 transition-all hover:text-white group shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-200 transition-all hover:text-white group shadow-sm cursor-pointer"
               title="End Voice Conversation (or say 'Stop listening')"
             >
               <FiSquare className="w-3 h-3 text-rose-400 group-hover:scale-110 transition-transform" />
@@ -194,7 +197,7 @@ export const VoicePopup = () => {
             </button>
             <button
               onClick={deactivateVoiceMode}
-              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
               aria-label="Close"
             >
               <FiX className="w-4 h-4" />
@@ -203,12 +206,12 @@ export const VoicePopup = () => {
         </div>
 
         {/* ── Row 2: Visualizer & Dialog Content Stream ────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center relative z-10 bg-black/30 rounded-2xl p-3.5 border border-white/10">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center relative z-10 bg-black/40 rounded-2xl p-3.5 border border-white/10 shadow-inner">
           
           {/* Animated Microphone Icon */}
-          <div className="md:col-span-2 flex items-center justify-center md:justify-start gap-2">
+          <div className="md:col-span-3 flex items-center justify-center md:justify-start gap-2.5">
             <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center border shadow-lg transition-all"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center border shadow-xl transition-all relative shrink-0"
               style={{
                 background: isDenied
                   ? 'rgba(239, 68, 68, 0.2)'
@@ -216,6 +219,7 @@ export const VoicePopup = () => {
                     ? 'linear-gradient(135deg, #059669, #34d399)'
                     : 'linear-gradient(135deg, #8b5cf6, #ec4899)',
                 borderColor: isSpeaking ? '#34d399' : '#c084fc',
+                boxShadow: isListening ? '0 0 20px rgba(236, 72, 153, 0.4)' : 'none',
               }}
             >
               {isDenied ? (
@@ -230,31 +234,32 @@ export const VoicePopup = () => {
           </div>
 
           {/* Assistant's Response Bubble + Live User Speech */}
-          <div className="md:col-span-10 space-y-1.5">
+          <div className="md:col-span-9 space-y-2">
             
             {/* Assistant Speech Bubble */}
-            <div className="flex items-start gap-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300 shrink-0 pt-0.5">
-                Assistant:
+            <div className="flex items-start gap-2 bg-white/5 p-2.5 rounded-xl border border-white/5">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300 shrink-0 pt-0.5 flex items-center gap-1">
+                <FiZap className="w-3 h-3 text-yellow-400" /> Luna:
               </span>
               <p className="text-sm font-semibold text-white leading-snug">
-                {lastAssistantMessage || "I'm listening."}
+                {lastAssistantMessage || "I'm listening. What would you like to do?"}
               </p>
             </div>
 
             {/* Live Recognized User Speech Text */}
-            <div className="flex items-start gap-2 text-xs">
+            <div className="flex items-start gap-2 text-xs px-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 shrink-0 pt-0.5">
                 You:
               </span>
-              <div className="text-purple-200 font-medium italic min-h-[18px]">
+              <div className="text-purple-200 font-medium min-h-[18px]">
                 {transcript ? (
-                  <span className="bg-purple-500/20 px-2 py-0.5 rounded-md border border-purple-500/30 not-italic text-white">
+                  <span className="bg-purple-500/25 px-2.5 py-1 rounded-lg border border-purple-500/40 text-white font-semibold shadow-xs">
                     “{transcript}”
                   </span>
                 ) : (
-                  <span className="text-slate-500 not-italic">
-                    {isListening ? 'Speak naturally… e.g. “Add expense”, “500”, “Food”, “Open study”' : '…'}
+                  <span className="text-slate-400 italic flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+                    <span>Luna is listening to your mic… Say “Add expense”, “500”, “Food”, or “Open study”</span>
                   </span>
                 )}
               </div>
