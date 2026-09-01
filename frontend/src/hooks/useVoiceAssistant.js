@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { useVoice } from '../context/VoiceContext';
 import { playActivationChime, speakNaturalVoice } from '../services/voiceFeedbackService';
 import { evaluateConversationTurn } from '../services/voiceDialogManager';
+import realtimeDb from '../services/realtimeDbService';
 
 const SpeechRecognitionAPI =
   typeof window !== 'undefined'
@@ -216,6 +217,38 @@ export const useVoiceAssistant = () => {
     const result = evaluateConversationTurn(spokenText, activeFlowRef.current, wakeWordRef.current);
     setActiveFlow(result.nextFlow);
     setLastAssistantMessage(result.responseText);
+
+    // ── PERSIST DATA: act on completed dialog flows ────────────────────────
+    if (result.actionPayload) {
+      const { action, amount, category, subject, duration } = result.actionPayload;
+
+      if (action === 'CREATE_EXPENSE_PREVIEW') {
+        // Save expense to realtime DB (localStorage + optional Spring Boot)
+        realtimeDb.addExpense({
+          title: category || 'Voice Expense',
+          amount: amount || 0,
+          category: category || 'General',
+          date: new Date().toISOString().split('T')[0],
+        }).catch(() => {}); // non-blocking
+      }
+
+      if (action === 'CREATE_STUDY_PREVIEW') {
+        // Parse duration string → numeric hours (e.g. "2 hours" → 2, "45 mins" → 0.75)
+        let numericHours = 1;
+        if (duration) {
+          const hrMatch = duration.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)/i);
+          const minMatch = duration.match(/(\d+)\s*(?:minutes?|mins?)/i);
+          if (hrMatch) numericHours = parseFloat(hrMatch[1]);
+          else if (minMatch) numericHours = parseFloat(minMatch[1]) / 60;
+        }
+        // Save study session to realtime DB
+        realtimeDb.addStudySession({
+          subject: subject || 'General Study',
+          hours: numericHours,
+          color: '#8b5cf6',
+        }).catch(() => {}); // non-blocking
+      }
+    }
 
     if (result.type === 'NAVIGATE' && result.targetPath) {
       result.targetPath === 'BACK' ? navigate(-1) : navigate(result.targetPath);

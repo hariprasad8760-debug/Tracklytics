@@ -26,22 +26,50 @@ import {
   FiTrendingUp 
 } from 'react-icons/fi';
 import { formatHours } from '../../utils/formatters';
+import { realtimeDb } from '../../services/realtimeDbService';
+
+const INITIAL_SUBJECTS = [
+  { id: 'sub-1', name: 'Spring Boot Architecture', loggedHours: 42.5, targetHours: 50.0, color: '#8b5cf6' },
+  { id: 'sub-2', name: 'React & System Design', loggedHours: 36.0, targetHours: 45.0, color: '#3b82f6' },
+  { id: 'sub-3', name: 'MySQL & Database Optimization', loggedHours: 28.0, targetHours: 35.0, color: '#06b6d4' },
+  { id: 'sub-4', name: 'Data Structures & Algorithms', loggedHours: 22.0, targetHours: 30.0, color: '#ec4899' },
+];
+
+const normalizeSession = (s) => {
+  const numHours = parseFloat(s.hours) || (s.durationMinutes ? s.durationMinutes / 60 : 1);
+  return {
+    id: s.id || `s-${Date.now()}`,
+    subjectName: s.subject || s.subjectName || 'Study Session',
+    durationMinutes: s.durationMinutes || Math.round(numHours * 60),
+    focusScore: s.focusScore || (s.progress ? Math.min(s.progress + 15, 98) : 90),
+    date: s.date || 'Today',
+    notes: s.notes || 'Focused study block',
+    color: s.color || '#8b5cf6'
+  };
+};
 
 export const StudyPage = () => {
   // Study Subjects state
-  const [subjects, setSubjects] = useState([
-    { id: 'sub-1', name: 'Spring Boot Architecture', loggedHours: 42.5, targetHours: 50.0, color: '#8b5cf6' },
-    { id: 'sub-2', name: 'React & System Design', loggedHours: 36.0, targetHours: 45.0, color: '#3b82f6' },
-    { id: 'sub-3', name: 'MySQL & Database Optimization', loggedHours: 28.0, targetHours: 35.0, color: '#06b6d4' },
-    { id: 'sub-4', name: 'Data Structures & Algorithms', loggedHours: 22.0, targetHours: 30.0, color: '#ec4899' },
-  ]);
+  const [subjects, setSubjects] = useState(INITIAL_SUBJECTS);
 
-  // Session History State
-  const [sessions, setSessions] = useState([
-    { id: 's-1', subjectName: 'Spring Boot Architecture', durationMinutes: 120, focusScore: 95, date: 'Today, 10:00 AM', notes: 'Built JWT Filter & SecurityConfig' },
-    { id: 's-2', subjectName: 'React & System Design', durationMinutes: 90, focusScore: 90, date: 'Yesterday, 4:30 PM', notes: 'Created Liquid Glass UI tokens' },
-    { id: 's-3', subjectName: 'MySQL & Database Optimization', durationMinutes: 60, focusScore: 85, date: '24 Jul 2026', notes: 'Indexed foreign key relationships' },
-  ]);
+  // Session History State synced from Real-Time Database
+  const [sessions, setSessions] = useState(() => realtimeDb.getStudySessions().map(normalizeSession));
+
+  const syncSessions = () => {
+    const rawSessions = realtimeDb.getStudySessions();
+    setSessions(rawSessions.map(normalizeSession));
+  };
+
+  useEffect(() => {
+    syncSessions();
+    const handleDbUpdate = () => syncSessions();
+    window.addEventListener('tracklytics_db_updated', handleDbUpdate);
+    window.addEventListener('storage', handleDbUpdate);
+    return () => {
+      window.removeEventListener('tracklytics_db_updated', handleDbUpdate);
+      window.removeEventListener('storage', handleDbUpdate);
+    };
+  }, []);
 
   // Pomodoro Live Timer State (25 minutes default = 1500 seconds)
   const [timerSeconds, setTimerSeconds] = useState(1500);
@@ -81,26 +109,26 @@ export const StudyPage = () => {
   };
 
   // Log session submit
-  const handleLogSession = (e) => {
+  const handleLogSession = async (e) => {
     e.preventDefault();
-    const createdSession = {
-      id: `s-${Date.now()}`,
-      subjectName: newSession.subjectName,
+    const durationHours = Number(newSession.durationMinutes) / 60.0;
+
+    await realtimeDb.addStudySession({
+      subject: newSession.subjectName,
+      hours: durationHours,
       durationMinutes: Number(newSession.durationMinutes),
       focusScore: Number(newSession.focusScore),
-      date: 'Just now',
-      notes: newSession.notes || 'Focused study block'
-    };
+      notes: newSession.notes || 'Focused study block',
+      date: new Date().toISOString().split('T')[0]
+    });
 
     // Update logged hours on subject
-    const addedHours = Number(newSession.durationMinutes) / 60.0;
     setSubjects(subjects.map(sub => 
       sub.name === newSession.subjectName 
-        ? { ...sub, loggedHours: Number((sub.loggedHours + addedHours).toFixed(1)) }
+        ? { ...sub, loggedHours: Number((sub.loggedHours + durationHours).toFixed(1)) }
         : sub
     ));
 
-    setSessions([createdSession, ...sessions]);
     setIsLogModalOpen(false);
   };
 

@@ -153,12 +153,13 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
 
     // Step 3: Awaiting Category / Description
     if (activeFlow.step === 'AWAITING_CATEGORY') {
-      const category = clean || 'General';
+      const rawCat = clean || 'General';
+      const category = rawCat.charAt(0).toUpperCase() + rawCat.slice(1);
       const amount = activeFlow.data?.amount || 0;
 
       return {
         type: 'DIALOG_RESPONSE',
-        responseText: `Got it. ₹${amount} ${category} expense.`,
+        responseText: `Got it. ₹${amount} ${category} expense saved.`,
         nextFlow: null, // Flow completed! Ready for next command
         shouldKeepListening: true,
         actionPayload: {
@@ -192,11 +193,12 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
     // Step 3: Awaiting Duration
     if (activeFlow.step === 'AWAITING_DURATION') {
       const duration = extractDuration(lower) || clean || '1 hour';
-      const subject = activeFlow.data?.subject || 'Study';
+      const rawSubject = activeFlow.data?.subject || 'Study';
+      const subject = rawSubject.charAt(0).toUpperCase() + rawSubject.slice(1);
 
       return {
         type: 'DIALOG_RESPONSE',
-        responseText: `Logged ${duration} for ${subject}.`,
+        responseText: `Logged ${duration} for ${subject} and saved.`,
         nextFlow: null, // Flow completed! Ready for next command
         shouldKeepListening: true,
         actionPayload: {
@@ -216,18 +218,24 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
   if (/\b(add\s*expense|new\s*expense|log\s*expense|record\s*expense|create\s*expense)\b/i.test(lower)) {
     // Check if user spoke single-shot e.g. "Add 500 food expense" or "Add expense 50 for coffee"
     const amount = extractAmount(lower);
-    const hasCategory = lower.replace(/\b(add|expense|new|log|record|create|for|dollars|bucks|rupees)\b/gi, '').trim();
+    // Strip noise words to get the description/category
+    const rawCategory = lower
+      .replace(/\b(add|expense|new|log|record|create|for|a|an|the|rupees|rs|inr|dollars|bucks)\b/gi, '')
+      .replace(/\b\d+(?:\.\d{1,2})?\b/g, '') // remove the number
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    if (amount !== null && hasCategory.length > 2) {
+    if (amount !== null && rawCategory.length > 1) {
+      const category = rawCategory.charAt(0).toUpperCase() + rawCategory.slice(1);
       return {
         type: 'DIALOG_RESPONSE',
-        responseText: `Got it. ₹${amount} ${hasCategory} expense.`,
+        responseText: `Got it. ₹${amount} ${category} expense saved.`,
         nextFlow: null,
         shouldKeepListening: true,
         actionPayload: {
           action: 'CREATE_EXPENSE_PREVIEW',
           amount,
-          category: hasCategory,
+          category,
         },
       };
     }
@@ -249,17 +257,24 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
   if (/\b(add\s*study|log\s*study|track\s*study|new\s*study|study\s*session)\b/i.test(lower)) {
     // Check single-shot e.g. "Log 2 hours for Spring Boot"
     const duration = extractDuration(lower);
-    const cleanedSubject = lower.replace(/\b(add|study|log|track|new|session|for|hours|hour|hrs|hr|mins|minutes)\b/gi, '').trim();
+    const cleanedSubject = lower
+      .replace(/\b(add|study|log|track|new|session|for|hours?|hrs?|mins?|minutes?|a|an|the)\b/gi, '')
+      .replace(/\b\d+(?:\.\d+)?\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const subject = cleanedSubject.length > 1
+      ? cleanedSubject.charAt(0).toUpperCase() + cleanedSubject.slice(1)
+      : null;
 
-    if (duration && cleanedSubject.length > 2) {
+    if (duration && subject) {
       return {
         type: 'DIALOG_RESPONSE',
-        responseText: `Logged ${duration} for ${cleanedSubject}.`,
+        responseText: `Logged ${duration} for ${subject} and saved.`,
         nextFlow: null,
         shouldKeepListening: true,
         actionPayload: {
           action: 'CREATE_STUDY_PREVIEW',
-          subject: cleanedSubject,
+          subject,
           duration,
         },
       };

@@ -28,6 +28,12 @@ const INITIAL_STUDY = [
   { id: 'std-4', subject: 'Data Structures & Algorithms', hours: '2.0 hrs', progress: 50, color: '#10b981', date: new Date(Date.now() - 259200000).toISOString().split('T')[0] }
 ];
 
+const notifyDbChange = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tracklytics_db_updated'));
+  }
+};
+
 export const realtimeDb = {
   // --------------------------------------------------------------------------
   // 1. EXPENSES REAL-TIME SERVICES
@@ -44,12 +50,15 @@ export const realtimeDb = {
       title: expense.title,
       amount: Number(expense.amount),
       category: expense.category || 'General',
-      date: expense.date || new Date().toISOString().split('T')[0],
+      date: expense.date || expense.expenseDate || new Date().toISOString().split('T')[0],
+      paymentMethod: expense.paymentMethod || 'UPI / Contactless',
+      notes: expense.notes || '',
       icon: 'dollar'
     };
 
     const updated = [newEntry, ...current];
     localStorage.setItem('tracklytics_realtime_expenses', JSON.stringify(updated));
+    notifyDbChange();
 
     // Try posting to Spring Boot backend MySQL
     try {
@@ -58,6 +67,20 @@ export const realtimeDb = {
       console.log('Stored to Real-Time Local Database (Spring Boot offline or connecting)');
     }
 
+    return updated;
+  },
+
+  deleteExpense: async (id) => {
+    const current = realtimeDb.getExpenses();
+    const updated = current.filter(item => item.id !== id);
+    localStorage.setItem('tracklytics_realtime_expenses', JSON.stringify(updated));
+    notifyDbChange();
+
+    try {
+      await apiClient.delete(`/expenses/${id}`);
+    } catch (e) {
+      // offline fallback
+    }
     return updated;
   },
 
@@ -71,17 +94,21 @@ export const realtimeDb = {
 
   addStudySession: async (session) => {
     const current = realtimeDb.getStudySessions();
+    const numHours = typeof session.hours === 'number' ? session.hours : parseFloat(session.hours) || 1;
     const newEntry = {
       id: `std-${Date.now()}`,
-      subject: session.subject,
-      hours: `${session.hours} hrs`,
-      progress: Math.min(Math.round((Number(session.hours) / 5) * 100), 100),
+      subject: session.subject || session.subjectName || 'Study Session',
+      hours: `${numHours.toFixed(1)} hrs`,
+      durationMinutes: Math.round(numHours * 60),
+      progress: Math.min(Math.round((numHours / 5) * 100), 100),
       color: session.color || '#8b5cf6',
-      date: new Date().toISOString().split('T')[0]
+      date: session.date || new Date().toISOString().split('T')[0],
+      notes: session.notes || 'Voice/Logged session'
     };
 
     const updated = [newEntry, ...current];
     localStorage.setItem('tracklytics_realtime_study', JSON.stringify(updated));
+    notifyDbChange();
 
     try {
       await apiClient.post('/study-sessions', newEntry);
@@ -89,6 +116,20 @@ export const realtimeDb = {
       console.log('Stored to Real-Time Local Database');
     }
 
+    return updated;
+  },
+
+  deleteStudySession: async (id) => {
+    const current = realtimeDb.getStudySessions();
+    const updated = current.filter(item => item.id !== id);
+    localStorage.setItem('tracklytics_realtime_study', JSON.stringify(updated));
+    notifyDbChange();
+
+    try {
+      await apiClient.delete(`/study-sessions/${id}`);
+    } catch (e) {
+      // offline fallback
+    }
     return updated;
   },
 

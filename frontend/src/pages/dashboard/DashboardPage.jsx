@@ -55,7 +55,14 @@ export const DashboardPage = () => {
 
   useEffect(() => {
     refreshData();
-  }, []);
+    const handleDbUpdate = () => refreshData();
+    window.addEventListener('tracklytics_db_updated', handleDbUpdate);
+    window.addEventListener('storage', handleDbUpdate);
+    return () => {
+      window.removeEventListener('tracklytics_db_updated', handleDbUpdate);
+      window.removeEventListener('storage', handleDbUpdate);
+    };
+  }, [profile.currency]);
 
   // Handle Add New Expense
   const handleCreateExpense = async (e) => {

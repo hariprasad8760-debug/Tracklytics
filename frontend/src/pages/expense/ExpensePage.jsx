@@ -9,7 +9,7 @@
  * ============================================================================
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import GlassCard from '../../components/common/GlassCard';
 import GlassButton from '../../components/common/GlassButton';
 import Badge from '../../components/common/Badge';
@@ -29,61 +29,44 @@ import {
   FiArrowDown
 } from 'react-icons/fi';
 import { formatCurrency } from '../../utils/formatters';
+import { realtimeDb } from '../../services/realtimeDbService';
+
+const getCategoryColor = (cat = '') => {
+  if (/software|tech|ai|app/i.test(cat)) return '#8b5cf6';
+  if (/education|book|course|study/i.test(cat)) return '#3b82f6';
+  if (/dining|food|coffee|cafe/i.test(cat)) return '#f59e0b';
+  return '#10b981';
+};
+
+const normalizeExpense = (item) => ({
+  id: item.id || `tx-${Date.now()}`,
+  title: item.title || 'Expense',
+  amount: Number(item.amount) || 0,
+  category: item.category || 'General',
+  expenseDate: item.date || item.expenseDate || new Date().toISOString().split('T')[0],
+  paymentMethod: item.paymentMethod || 'UPI / Contactless',
+  notes: item.notes || '',
+  color: item.color || getCategoryColor(item.category)
+});
 
 export const ExpensePage = () => {
-  // Initial Expense Transactions State
-  const [expenses, setExpenses] = useState([
-    {
-      id: 'tx-1',
-      title: 'ChatGPT Plus Subscription',
-      amount: 1999.00,
-      category: 'Software Subscriptions',
-      expenseDate: '2026-07-26',
-      paymentMethod: 'Credit Card',
-      notes: 'AI coding assistance subscription',
-      color: '#8b5cf6'
-    },
-    {
-      id: 'tx-2',
-      title: 'Claude Pro Plan',
-      amount: 1999.00,
-      category: 'Software Subscriptions',
-      expenseDate: '2026-07-25',
-      paymentMethod: 'Credit Card',
-      notes: 'LLM reasoning model',
-      color: '#8b5cf6'
-    },
-    {
-      id: 'tx-3',
-      title: 'Spring Boot 3 Masterclass Book',
-      amount: 4500.00,
-      category: 'Education / Books',
-      expenseDate: '2026-07-24',
-      paymentMethod: 'Debit Card',
-      notes: 'Advanced Spring Security reference',
-      color: '#3b82f6'
-    },
-    {
-      id: 'tx-4',
-      title: 'Starbucks Study Cafe',
-      amount: 650.00,
-      category: 'Dining & Coffee',
-      expenseDate: '2026-07-23',
-      paymentMethod: 'UPI / Contactless',
-      notes: 'Late night study coffee',
-      color: '#f59e0b'
-    },
-    {
-      id: 'tx-5',
-      title: 'Udemy React Architecture Course',
-      amount: 2499.00,
-      category: 'Education / Books',
-      expenseDate: '2026-07-20',
-      paymentMethod: 'Credit Card',
-      notes: 'Clean code & Hooks design',
-      color: '#3b82f6'
-    }
-  ]);
+  // Initial Expense Transactions State synced with Real-Time Database
+  const [expenses, setExpenses] = useState(() => realtimeDb.getExpenses().map(normalizeExpense));
+
+  const syncExpenses = () => {
+    setExpenses(realtimeDb.getExpenses().map(normalizeExpense));
+  };
+
+  useEffect(() => {
+    syncExpenses();
+    const handleDbUpdate = () => syncExpenses();
+    window.addEventListener('tracklytics_db_updated', handleDbUpdate);
+    window.addEventListener('storage', handleDbUpdate);
+    return () => {
+      window.removeEventListener('tracklytics_db_updated', handleDbUpdate);
+      window.removeEventListener('storage', handleDbUpdate);
+    };
+  }, []);
 
   // Active Category Filter state
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -118,35 +101,32 @@ export const ExpensePage = () => {
     .filter(expense => {
       const matchesCategory = selectedCategory === 'All' || expense.category === selectedCategory;
       const matchesSearch = expense.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            expense.notes.toLowerCase().includes(searchQuery.toLowerCase());
+                            (expense.notes && expense.notes.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesCategory && matchesSearch;
     })
     .sort((a, b) => {
       let cmp = 0;
-      if (sortBy === 'date')   cmp = a.expenseDate.localeCompare(b.expenseDate);
+      if (sortBy === 'date')   cmp = (a.expenseDate || '').localeCompare(b.expenseDate || '');
       if (sortBy === 'amount') cmp = a.amount - b.amount;
-      if (sortBy === 'title')  cmp = a.title.localeCompare(b.title);
+      if (sortBy === 'title')  cmp = (a.title || '').localeCompare(b.title || '');
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
   // Handle Form Submit
-  const handleAddExpense = (e) => {
+  const handleAddExpense = async (e) => {
     e.preventDefault();
     if (!newExpense.title || !newExpense.amount) return;
 
-    const createdItem = {
-      id: `tx-${Date.now()}`,
+    await realtimeDb.addExpense({
       title: newExpense.title,
       amount: parseFloat(newExpense.amount),
       category: newExpense.category,
-      expenseDate: newExpense.expenseDate,
+      date: newExpense.expenseDate,
       paymentMethod: newExpense.paymentMethod,
       notes: newExpense.notes || 'N/A',
-      color: newExpense.category === 'Software Subscriptions' ? '#8b5cf6' : 
-             newExpense.category === 'Education / Books' ? '#3b82f6' : '#f59e0b'
-    };
+      color: getCategoryColor(newExpense.category)
+    });
 
-    setExpenses([createdItem, ...expenses]);
     setNewExpense({
       title: '',
       amount: '',
@@ -159,8 +139,8 @@ export const ExpensePage = () => {
   };
 
   // Handle Delete Item
-  const handleDelete = (id) => {
-    setExpenses(expenses.filter(item => item.id !== id));
+  const handleDelete = async (id) => {
+    await realtimeDb.deleteExpense(id);
   };
 
   const categories = ['All', 'Software Subscriptions', 'Education / Books', 'Dining & Coffee'];
