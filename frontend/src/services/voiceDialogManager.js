@@ -211,6 +211,50 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 4B. MULTI-TURN DIALOG: DELETE EXPENSE FLOW
+  // ─────────────────────────────────────────────────────────────────────────
+  if (activeFlow && activeFlow.type === 'DELETE_EXPENSE') {
+    if (activeFlow.step === 'AWAITING_EXPENSE_TARGET') {
+      const isLast = /\b(last|latest|recent|previous|newest|one)\b/i.test(lower);
+      const amount = extractAmount(lower);
+      const targetQuery = lower.replace(/\b(the|a|an|expense|for|rupees|rs|dollars|bucks|last|one)\b/gi, '').trim();
+
+      return {
+        type: 'DIALOG_RESPONSE',
+        responseText: isLast ? 'Removing your latest expense.' : `Removing expense for ${targetQuery || 'requested item'}.`,
+        nextFlow: null,
+        shouldKeepListening: true,
+        actionPayload: {
+          action: 'DELETE_EXPENSE',
+          target: isLast ? 'last' : targetQuery,
+          amount: amount || undefined,
+        },
+      };
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 4C. MULTI-TURN DIALOG: DELETE STUDY SESSION FLOW
+  // ─────────────────────────────────────────────────────────────────────────
+  if (activeFlow && activeFlow.type === 'DELETE_STUDY') {
+    if (activeFlow.step === 'AWAITING_STUDY_TARGET') {
+      const isLast = /\b(last|latest|recent|previous|newest|one)\b/i.test(lower);
+      const targetQuery = lower.replace(/\b(the|a|an|study|session|hours?|last|one)\b/gi, '').trim();
+
+      return {
+        type: 'DIALOG_RESPONSE',
+        responseText: isLast ? 'Removing your latest study session.' : `Removing study session for ${targetQuery || 'requested subject'}.`,
+        nextFlow: null,
+        shouldKeepListening: true,
+        actionPayload: {
+          action: 'DELETE_STUDY',
+          target: isLast ? 'last' : targetQuery,
+        },
+      };
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 5. INITIATING NEW INTENTS (User speaks a fresh command)
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -292,17 +336,91 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
     };
   }
 
-  // Intent C: Help / Who are you?
+  // Intent C: "Delete expense" / "Remove expense"
+  if (/\b(delete\s*expense|remove\s*expense|clear\s*expense|erase\s*expense|delete\s*last\s*expense|remove\s*last\s*expense|remove\s*latest\s*expense)\b/i.test(lower)) {
+    const isLast = /\b(last|latest|recent|previous|newest)\b/i.test(lower);
+    const amount = extractAmount(lower);
+    const targetQuery = lower
+      .replace(/\b(delete|remove|clear|erase|expense|last|latest|recent|for|rupees|rs|dollars|bucks|the|a|an)\b/gi, '')
+      .replace(/\b\d+(?:\.\d+)?\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (isLast || amount || targetQuery.length > 1) {
+      return {
+        type: 'DIALOG_RESPONSE',
+        responseText: isLast 
+          ? 'Removing your latest expense.' 
+          : `Removing expense for ${targetQuery || amount || 'requested item'}.`,
+        nextFlow: null,
+        shouldKeepListening: true,
+        actionPayload: {
+          action: 'DELETE_EXPENSE',
+          target: isLast ? 'last' : targetQuery,
+          amount: amount || undefined,
+        },
+      };
+    }
+
+    return {
+      type: 'DIALOG_RESPONSE',
+      responseText: "Which expense would you like to remove? You can say the category, amount, or 'last one'.",
+      nextFlow: {
+        type: 'DELETE_EXPENSE',
+        step: 'AWAITING_EXPENSE_TARGET',
+        data: {},
+      },
+      shouldKeepListening: true,
+    };
+  }
+
+  // Intent D: "Delete study session" / "Remove study"
+  if (/\b(delete\s*study|remove\s*study|clear\s*study|erase\s*study|delete\s*study\s*session|remove\s*study\s*session|delete\s*last\s*study|remove\s*last\s*study|remove\s*latest\s*study)\b/i.test(lower)) {
+    const isLast = /\b(last|latest|recent|previous|newest)\b/i.test(lower);
+    const targetSubject = lower
+      .replace(/\b(delete|remove|clear|erase|study|session|last|latest|recent|for|hours?|hrs?|mins?|the|a|an)\b/gi, '')
+      .replace(/\b\d+(?:\.\d+)?\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (isLast || targetSubject.length > 1) {
+      return {
+        type: 'DIALOG_RESPONSE',
+        responseText: isLast 
+          ? 'Removing your latest study session.' 
+          : `Removing study session for ${targetSubject}.`,
+        nextFlow: null,
+        shouldKeepListening: true,
+        actionPayload: {
+          action: 'DELETE_STUDY',
+          target: isLast ? 'last' : targetSubject,
+        },
+      };
+    }
+
+    return {
+      type: 'DIALOG_RESPONSE',
+      responseText: "Which study session would you like to remove? You can say the subject name or 'last one'.",
+      nextFlow: {
+        type: 'DELETE_STUDY',
+        step: 'AWAITING_STUDY_TARGET',
+        data: {},
+      },
+      shouldKeepListening: true,
+    };
+  }
+
+  // Intent E: Help / Who are you?
   if (/\b(what\s*can\s*you\s*do|help|commands|options|who\s*are\s*you)\b/i.test(lower)) {
     return {
       type: 'HELP',
-      responseText: "You can say 'Add expense', 'Log study hours', or navigate to any page like expenses, study, calendar, or analytics.",
+      responseText: "You can say 'Add expense', 'Remove last expense', 'Log study hours', 'Delete study session', or navigate to any page.",
       nextFlow: null,
       shouldKeepListening: true,
     };
   }
 
-  // Intent D: Check standard navigation routes
+  // Intent F: Check standard navigation routes
   const navIntent = parseVoiceIntent(rawTranscript, wakeWord);
   if (navIntent.type === 'NAVIGATE') {
     return {
@@ -320,7 +438,7 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
   // ─────────────────────────────────────────────────────────────────────────
   return {
     type: 'UNKNOWN',
-    responseText: "I didn't catch that. You can say 'Add expense', 'Open study', or 'Stop listening'.",
+    responseText: "I didn't catch that. You can say 'Add expense', 'Delete last expense', 'Log study', or 'Stop listening'.",
     nextFlow: null,
     shouldKeepListening: true,
   };

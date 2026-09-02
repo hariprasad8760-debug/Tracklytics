@@ -248,6 +248,24 @@ export const useVoiceAssistant = () => {
           color: '#8b5cf6',
         }).catch(() => {}); // non-blocking
       }
+
+      if (action === 'DELETE_EXPENSE') {
+        const { target, amount } = result.actionPayload;
+        if (target === 'last' && !amount) {
+          realtimeDb.deleteLastExpense().catch(() => {});
+        } else {
+          realtimeDb.deleteExpenseByQuery(target, amount).catch(() => {});
+        }
+      }
+
+      if (action === 'DELETE_STUDY') {
+        const { target } = result.actionPayload;
+        if (target === 'last') {
+          realtimeDb.deleteLastStudySession().catch(() => {});
+        } else {
+          realtimeDb.deleteStudySessionByQuery(target).catch(() => {});
+        }
+      }
     }
 
     if (result.type === 'NAVIGATE' && result.targetPath) {

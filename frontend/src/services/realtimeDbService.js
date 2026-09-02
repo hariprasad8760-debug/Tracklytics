@@ -84,6 +84,40 @@ export const realtimeDb = {
     return updated;
   },
 
+  deleteLastExpense: async () => {
+    const current = realtimeDb.getExpenses();
+    if (current.length === 0) return null;
+    const removed = current[0];
+    await realtimeDb.deleteExpense(removed.id);
+    return removed;
+  },
+
+  deleteExpenseByQuery: async (query, amount) => {
+    const current = realtimeDb.getExpenses();
+    if (current.length === 0) return null;
+    
+    let target = null;
+    if (amount) {
+      target = current.find(item => Math.abs(Number(item.amount) - Number(amount)) < 0.01);
+    }
+    if (!target && query) {
+      const q = query.toLowerCase().trim();
+      target = current.find(item => 
+        (item.title && item.title.toLowerCase().includes(q)) ||
+        (item.category && item.category.toLowerCase().includes(q))
+      );
+    }
+    if (!target) {
+      target = current[0]; // fallback to most recent
+    }
+
+    if (target) {
+      await realtimeDb.deleteExpense(target.id);
+      return target;
+    }
+    return null;
+  },
+
   // --------------------------------------------------------------------------
   // 2. STUDY SESSIONS REAL-TIME SERVICES
   // --------------------------------------------------------------------------
@@ -131,6 +165,34 @@ export const realtimeDb = {
       // offline fallback
     }
     return updated;
+  },
+
+  deleteLastStudySession: async () => {
+    const current = realtimeDb.getStudySessions();
+    if (current.length === 0) return null;
+    const removed = current[0];
+    await realtimeDb.deleteStudySession(removed.id);
+    return removed;
+  },
+
+  deleteStudySessionByQuery: async (query) => {
+    const current = realtimeDb.getStudySessions();
+    if (current.length === 0) return null;
+    let target = null;
+    if (query) {
+      const q = query.toLowerCase().trim();
+      target = current.find(item => 
+        (item.subject && item.subject.toLowerCase().includes(q))
+      );
+    }
+    if (!target) {
+      target = current[0]; // fallback to most recent
+    }
+    if (target) {
+      await realtimeDb.deleteStudySession(target.id);
+      return target;
+    }
+    return null;
   },
 
   // --------------------------------------------------------------------------

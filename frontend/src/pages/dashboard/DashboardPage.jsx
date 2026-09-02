@@ -17,6 +17,7 @@ import GlassButton from '../../components/common/GlassButton';
 import Badge from '../../components/common/Badge';
 import { realtimeDb } from '../../services/realtimeDbService';
 import { useUserProfile } from '../../context/UserProfileContext';
+import { formatCurrency } from '../../utils/formatters';
 import { 
   FiClock, 
   FiBookOpen, 
@@ -30,7 +31,8 @@ import {
   FiPlus,
   FiCheckCircle,
   FiSun,
-  FiZap
+  FiZap,
+  FiTrash2
 } from 'react-icons/fi';
 
 export const DashboardPage = () => {
@@ -281,7 +283,7 @@ export const DashboardPage = () => {
               {totals.expensesList.slice(0, 4).map((tx) => (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all duration-200"
+                  className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all duration-200 group"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
@@ -296,11 +298,21 @@ export const DashboardPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs font-bold font-mono text-emerald-400">
-                      ${Number(tx.amount).toFixed(2)}
-                    </span>
-                    <span className="text-[10px] text-slate-500">{tx.category}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs font-bold font-mono text-emerald-400">
+                        {formatCurrency(tx.amount, profile.currency || 'INR')}
+                      </span>
+                      <span className="text-[10px] text-slate-500">{tx.category}</span>
+                    </div>
+
+                    <button
+                      onClick={() => realtimeDb.deleteExpense(tx.id)}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-80 group-hover:opacity-100"
+                      title="Delete expense"
+                    >
+                      <FiTrash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -346,12 +358,12 @@ export const DashboardPage = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Amount ($)</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Amount ({profile.currencySymbol || '₹'})</label>
                 <input
                   type="number"
                   step="0.01"
                   required
-                  placeholder="49.99"
+                  placeholder="499.00"
                   value={newExpense.amount}
                   onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500 font-mono"

@@ -23,7 +23,8 @@ import {
   FiCheckCircle, 
   FiAward, 
   FiX, 
-  FiTrendingUp 
+  FiTrendingUp,
+  FiTrash2 
 } from 'react-icons/fi';
 import { formatHours } from '../../utils/formatters';
 import { realtimeDb } from '../../services/realtimeDbService';
@@ -132,6 +133,10 @@ export const StudyPage = () => {
     setIsLogModalOpen(false);
   };
 
+  const handleDeleteSession = async (id) => {
+    await realtimeDb.deleteStudySession(id);
+  };
+
   const totalLoggedHours = subjects.reduce((sum, s) => sum + s.loggedHours, 0);
 
   return (
@@ -178,16 +183,15 @@ export const StudyPage = () => {
             <div className="text-6xl font-black font-mono tracking-wider text-white drop-shadow-lg">
               {formatTimerTime(timerSeconds)}
             </div>
-            <p className="text-[11px] text-purple-300 mt-2">
-              {isTimerRunning ? 'Session in progress...' : 'Ready to start focus block'}
+            <p className="text-xs text-slate-400 mt-2">
+              {isTimerRunning ? 'Deep Focus in Progress...' : 'Ready to begin session'}
             </p>
           </div>
 
-          {/* Timer Controls */}
+          {/* Controls */}
           <div className="flex items-center gap-3 mt-4">
             <GlassButton
-              variant={isTimerRunning ? 'glass' : 'primary'}
-              size="md"
+              variant={isTimerRunning ? 'ghost' : 'primary'}
               icon={isTimerRunning ? FiPause : FiPlay}
               onClick={() => setIsTimerRunning(!isTimerRunning)}
             >
@@ -196,7 +200,6 @@ export const StudyPage = () => {
 
             <GlassButton
               variant="ghost"
-              size="md"
               icon={FiRotateCcw}
               onClick={() => {
                 setIsTimerRunning(false);
@@ -208,67 +211,89 @@ export const StudyPage = () => {
           </div>
         </GlassCard>
 
-        {/* 3 Metric Cards Column (7 cols) */}
-        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {/* Focus Metrics (7 cols) */}
+        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <GlassCard>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400">Total Hours Logged</span>
+              <span className="text-xs font-semibold text-slate-400">Total Study Time</span>
               <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
                 <FiClock className="w-4 h-4" />
               </div>
             </div>
             <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">{formatHours(totalLoggedHours)}</h3>
             <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-              <FiTrendingUp /> +24% vs last week target
+              <FiTrendingUp /> +14.2% vs last week
             </p>
           </GlassCard>
 
           <GlassCard>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400">Avg Focus Score</span>
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
-                <FiAward className="w-4 h-4" />
+              <span className="text-xs font-semibold text-slate-400">Daily Focus Goal</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                <FiCheckCircle className="w-4 h-4" />
               </div>
             </div>
-            <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">92.4%</h3>
-            <p className="text-[11px] text-purple-300 mt-1">Top 5% productivity score</p>
+            <h3 className="text-3xl font-extrabold text-white mt-2 font-mono">4.5 / 6.0 hrs</h3>
+            <p className="text-[11px] text-slate-400 mt-1">75% of target achieved</p>
           </GlassCard>
 
           <GlassCard className="sm:col-span-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400">Active Subjects</span>
-              <Badge variant="purple">{subjects.length} Enrolled</Badge>
+              <span className="text-xs font-semibold text-slate-400">Average Focus Score</span>
+              <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                <FiAward className="w-4 h-4" />
+              </div>
             </div>
-            <p className="text-xs text-slate-300 mt-2">
-              Spring Boot Architecture, React & System Design, MySQL Optimization, Data Structures
-            </p>
+            <div className="flex items-baseline gap-2 mt-2">
+              <h3 className="text-3xl font-extrabold text-white font-mono">92.4%</h3>
+              <span className="text-xs text-emerald-400 font-semibold">High Efficiency</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Based on recent pomodoro & active logging sessions</p>
           </GlassCard>
         </div>
       </div>
 
       {/* ---------------------------------------------------------------------- */}
-      {/* 2. SUBJECTS PROGRESS LIST                                               */}
+      {/* 2. SUBJECTS PROGRESS OVERVIEW                                           */}
       {/* ---------------------------------------------------------------------- */}
       <GlassCard>
-        <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-          <FiBookOpen className="text-purple-400" /> Subject Goal Progress
-        </h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <FiBookOpen className="text-purple-400" /> Subject Progress
+          </h3>
+          <span className="text-xs text-slate-400">{subjects.length} active tracks</span>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {subjects.map((sub) => {
-            const percent = Math.min(100, Math.round((sub.loggedHours / sub.targetHours) * 100));
+            const percentage = Math.min(Math.round((sub.loggedHours / sub.targetHours) * 100), 100);
             return (
-              <div key={sub.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-white">{sub.name}</span>
-                  <span className="font-mono text-purple-300">{sub.loggedHours}h / {sub.targetHours}h ({percent}%)</span>
+              <div 
+                key={sub.id} 
+                className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all duration-200"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-white">{sub.name}</span>
+                  <span className="text-xs font-mono text-slate-300 font-semibold">
+                    {sub.loggedHours.toFixed(1)} / {sub.targetHours.toFixed(1)} hrs
+                  </span>
                 </div>
 
-                <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden p-0.5">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 shadow-sm"
-                    style={{ width: `${percent}%`, backgroundColor: sub.color }}
+                {/* Progress bar container */}
+                <div className="w-full h-2.5 rounded-full bg-white/10 overflow-hidden relative">
+                  <div 
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ 
+                      width: `${percentage}%`,
+                      backgroundColor: sub.color,
+                      boxShadow: `0 0 12px ${sub.color}80`
+                    }}
                   />
+                </div>
+
+                <div className="flex items-center justify-between mt-2 text-[11px] text-slate-400">
+                  <span>{percentage}% Completed</span>
+                  <span>{(sub.targetHours - sub.loggedHours).toFixed(1)} hrs remaining</span>
                 </div>
               </div>
             );
@@ -333,16 +358,27 @@ export const StudyPage = () => {
                     </div>
                   </div>
 
-                  {/* Focus Score Badge */}
-                  <div
-                    className="shrink-0 px-3 py-1 rounded-xl text-xs font-bold font-mono border"
-                    style={{
-                      color: s.focusScore >= 90 ? '#34d399' : s.focusScore >= 75 ? '#a78bfa' : '#f59e0b',
-                      borderColor: s.focusScore >= 90 ? '#34d39930' : s.focusScore >= 75 ? '#a78bfa30' : '#f59e0b30',
-                      backgroundColor: s.focusScore >= 90 ? '#34d39910' : s.focusScore >= 75 ? '#a78bfa10' : '#f59e0b10',
-                    }}
-                  >
-                    {s.focusScore}%
+                  <div className="flex items-center gap-3">
+                    {/* Focus Score Badge */}
+                    <div
+                      className="shrink-0 px-3 py-1 rounded-xl text-xs font-bold font-mono border"
+                      style={{
+                        color: s.focusScore >= 90 ? '#34d399' : s.focusScore >= 75 ? '#a78bfa' : '#f59e0b',
+                        borderColor: s.focusScore >= 90 ? '#34d39930' : s.focusScore >= 75 ? '#a78bfa30' : '#f59e0b30',
+                        backgroundColor: s.focusScore >= 90 ? '#34d39910' : s.focusScore >= 75 ? '#a78bfa10' : '#f59e0b10',
+                      }}
+                    >
+                      {s.focusScore}%
+                    </div>
+
+                    {/* Manual Delete Button */}
+                    <button
+                      onClick={() => handleDeleteSession(s.id)}
+                      className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      title="Delete study session"
+                    >
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               );
