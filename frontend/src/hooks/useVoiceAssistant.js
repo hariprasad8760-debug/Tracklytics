@@ -208,7 +208,7 @@ export const useVoiceAssistant = () => {
   }, []);
 
   // ─── PROCESS CONVERSATION TURN ────────────────────────────────────────────
-  const processTurn = useCallback((spokenText) => {
+  const processTurn = useCallback(async (spokenText) => {
     if (!spokenText || !spokenText.trim()) return;
 
     setConversationState('PROCESSING');
@@ -216,7 +216,7 @@ export const useVoiceAssistant = () => {
 
     const result = evaluateConversationTurn(spokenText, activeFlowRef.current, wakeWordRef.current);
     setActiveFlow(result.nextFlow);
-    setLastAssistantMessage(result.responseText);
+    let spokenResponse = result.responseText;
 
     // ── PERSIST DATA: act on completed dialog flows ────────────────────────
     if (result.actionPayload) {
@@ -229,7 +229,7 @@ export const useVoiceAssistant = () => {
           amount: amount || 0,
           category: category || 'General',
           date: new Date().toISOString().split('T')[0],
-        }).catch(() => {}); // non-blocking
+        }).catch(() => {});
       }
 
       if (action === 'CREATE_STUDY_PREVIEW') {
@@ -246,27 +246,47 @@ export const useVoiceAssistant = () => {
           subject: subject || 'General Study',
           hours: numericHours,
           color: '#8b5cf6',
-        }).catch(() => {}); // non-blocking
+        }).catch(() => {});
       }
 
       if (action === 'DELETE_EXPENSE') {
         const { target, amount } = result.actionPayload;
+        let deleted = null;
         if (target === 'last' && !amount) {
-          realtimeDb.deleteLastExpense().catch(() => {});
+          deleted = await realtimeDb.deleteLastExpense().catch(() => null);
         } else {
-          realtimeDb.deleteExpenseByQuery(target, amount).catch(() => {});
+          deleted = await realtimeDb.deleteExpenseByQuery(target, amount).catch(() => null);
+        }
+
+        if (deleted) {
+          spokenResponse = `Removed ${deleted.title || deleted.category} expense of ₹${deleted.amount}.`;
+        } else {
+          spokenResponse = target === 'last' 
+            ? 'There are no expenses in your records to remove.' 
+            : `Could not find an expense matching ${target || 'that'} to remove.`;
         }
       }
 
       if (action === 'DELETE_STUDY') {
         const { target } = result.actionPayload;
+        let deleted = null;
         if (target === 'last') {
-          realtimeDb.deleteLastStudySession().catch(() => {});
+          deleted = await realtimeDb.deleteLastStudySession().catch(() => null);
         } else {
-          realtimeDb.deleteStudySessionByQuery(target).catch(() => {});
+          deleted = await realtimeDb.deleteStudySessionByQuery(target).catch(() => null);
+        }
+
+        if (deleted) {
+          spokenResponse = `Removed study session for ${deleted.subject}.`;
+        } else {
+          spokenResponse = target === 'last'
+            ? 'There are no study sessions in your records to remove.'
+            : `Could not find a study session for ${target || 'that'} to remove.`;
         }
       }
     }
+
+    setLastAssistantMessage(spokenResponse);
 
     if (result.type === 'NAVIGATE' && result.targetPath) {
       result.targetPath === 'BACK' ? navigate(-1) : navigate(result.targetPath);
@@ -274,7 +294,7 @@ export const useVoiceAssistant = () => {
 
     if (result.type === 'STOP_CONVERSATION' || !result.shouldKeepListening) {
       setConversationState('ASSISTANT_RESPONDING');
-      speakNaturalVoice(result.responseText, {
+      speakNaturalVoice(spokenResponse, {
         voiceType: assistantVoiceRef.current,
         onEnd: () => deactivateVoiceMode(),
       });
@@ -282,7 +302,7 @@ export const useVoiceAssistant = () => {
     }
 
     setConversationState('ASSISTANT_RESPONDING');
-    speakNaturalVoice(result.responseText, {
+    speakNaturalVoice(spokenResponse, {
       voiceType: assistantVoiceRef.current,
       onEnd: () => {
         if (isVoiceModeActiveRef.current && continuousModeRef.current) {
@@ -421,13 +441,19 @@ export const useVoiceAssistant = () => {
                   const trailingCommand = extractTrailingCommand(spoken, wakeWordRef.current);
                   stopBackgroundWatcher();
                   playActivationChime();
-                  activateVoiceMode('', "I'm listening.");
+
+                  const assistantName = wakeWordRef.current 
+                    ? (wakeWordRef.current.charAt(0).toUpperCase() + wakeWordRef.current.slice(1).toLowerCase()) 
+                    : 'Luna';
+                  const greeting = `Hey! I'm your ${assistantName}, tell me how can I help you today?`;
+
+                  activateVoiceMode('', greeting);
 
                   if (trailingCommand) {
                     processTurn(trailingCommand);
                   } else {
                     setConversationState('ASSISTANT_RESPONDING');
-                    speakNaturalVoice("I'm listening.", {
+                    speakNaturalVoice(greeting, {
                       voiceType: assistantVoiceRef.current,
                       onEnd: () => {
                         if (isVoiceModeActiveRef.current) {
@@ -495,19 +521,25 @@ export const useVoiceAssistant = () => {
     stopBackgroundWatcher();
     if (!isVoiceModeActiveRef.current) {
       playActivationChime();
-      activateVoiceMode('', "I'm listening.");
+      const assistantName = wakeWordRef.current 
+        ? (wakeWordRef.current.charAt(0).toUpperCase() + wakeWordRef.current.slice(1).toLowerCase()) 
+        : 'Luna';
+      const greeting = `Hey! I'm your ${assistantName}, tell me how can I help you today?`;
+
+      activateVoiceMode('', greeting);
       setConversationState('ASSISTANT_RESPONDING');
-      speakNaturalVoice("I'm listening.", {
+      speakNaturalVoice(greeting, {
         voiceType: assistantVoiceRef.current,
         onEnd: () => {
           if (isVoiceModeActiveRef.current) {
+            updateTranscript('');
             setConversationState('LISTENING');
             startActiveListener();
           }
         },
       });
     }
-  }, [stopBackgroundWatcher, activateVoiceMode, setConversationState, startActiveListener]);
+  }, [stopBackgroundWatcher, activateVoiceMode, setConversationState, startActiveListener, updateTranscript]);
 
   // ─── PENDING COMMAND EFFECT ───────────────────────────────────────────────
   useEffect(() => {

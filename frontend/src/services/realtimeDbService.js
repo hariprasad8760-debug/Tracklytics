@@ -97,18 +97,35 @@ export const realtimeDb = {
     if (current.length === 0) return null;
     
     let target = null;
-    if (amount) {
+
+    // 1. Check if user asked for last / latest / recent
+    if (!query || query === 'last' || query === 'latest' || query === 'recent' || query === 'last added' || query === 'last add') {
+      target = current[0];
+    }
+
+    // 2. If amount specified, search by amount
+    if (!target && amount) {
       target = current.find(item => Math.abs(Number(item.amount) - Number(amount)) < 0.01);
     }
+
+    // 3. Search by title / category matching
     if (!target && query) {
       const q = query.toLowerCase().trim();
+      // Exact or substring match in title or category
       target = current.find(item => 
         (item.title && item.title.toLowerCase().includes(q)) ||
-        (item.category && item.category.toLowerCase().includes(q))
+        (item.category && item.category.toLowerCase().includes(q)) ||
+        (item.notes && item.notes.toLowerCase().includes(q))
       );
-    }
-    if (!target) {
-      target = current[0]; // fallback to most recent
+
+      // If no substring match, check word-by-word token overlap
+      if (!target) {
+        const tokens = q.split(/\s+/).filter(t => t.length > 2);
+        target = current.find(item => {
+          const itemText = `${item.title || ''} ${item.category || ''} ${item.notes || ''}`.toLowerCase();
+          return tokens.some(token => itemText.includes(token));
+        });
+      }
     }
 
     if (target) {
@@ -179,15 +196,30 @@ export const realtimeDb = {
     const current = realtimeDb.getStudySessions();
     if (current.length === 0) return null;
     let target = null;
-    if (query) {
+
+    // 1. Check if user asked for last / latest / recent
+    if (!query || query === 'last' || query === 'latest' || query === 'recent' || query === 'last added' || query === 'last add') {
+      target = current[0];
+    }
+
+    // 2. Search by subject name or notes
+    if (!target && query) {
       const q = query.toLowerCase().trim();
       target = current.find(item => 
-        (item.subject && item.subject.toLowerCase().includes(q))
+        (item.subject && item.subject.toLowerCase().includes(q)) ||
+        (item.notes && item.notes.toLowerCase().includes(q))
       );
+
+      // 3. Fuzzy token matching
+      if (!target) {
+        const tokens = q.split(/\s+/).filter(t => t.length > 2);
+        target = current.find(item => {
+          const itemText = `${item.subject || ''} ${item.notes || ''}`.toLowerCase();
+          return tokens.some(token => itemText.includes(token));
+        });
+      }
     }
-    if (!target) {
-      target = current[0]; // fallback to most recent
-    }
+
     if (target) {
       await realtimeDb.deleteStudySession(target.id);
       return target;

@@ -79,10 +79,13 @@ export const VoicePopup = () => {
     lastAssistantMessage,
     activeFlow,
     wakeWord,
+    assistantName: contextAssistantName,
     micPermission,
     deactivateVoiceMode,
     triggerCommand,
   } = useVoice();
+
+  const assistantName = contextAssistantName || (wakeWord ? (wakeWord.charAt(0).toUpperCase() + wakeWord.slice(1).toLowerCase()) : 'Luna');
 
   if (!isVoiceModeActive) return null;
 
@@ -151,7 +154,7 @@ export const VoicePopup = () => {
             <span className="text-xs font-extrabold tracking-wider uppercase text-white flex items-center gap-1.5 font-mono">
               <span className="text-purple-300 flex items-center gap-1">
                 <FiZap className="w-3.5 h-3.5 text-yellow-400" />
-                <span>Luna</span>
+                <span>{assistantName}</span>
               </span>
               <span className="text-slate-400 font-normal">·</span>
               <span
@@ -164,11 +167,11 @@ export const VoicePopup = () => {
                 }
               >
                 {isSpeaking
-                  ? 'Luna Speaking…'
+                  ? `${assistantName} Speaking…`
                   : isProcessing
-                    ? 'Luna Processing…'
+                    ? `${assistantName} Processing…`
                     : isListening
-                      ? 'Luna is Listening…'
+                      ? `${assistantName} is Listening…`
                       : 'Idle'}
               </span>
             </span>
@@ -239,7 +242,7 @@ export const VoicePopup = () => {
             {/* Assistant Speech Bubble */}
             <div className="flex items-start gap-2 bg-white/5 p-2.5 rounded-xl border border-white/5">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300 shrink-0 pt-0.5 flex items-center gap-1">
-                <FiZap className="w-3 h-3 text-yellow-400" /> Luna:
+                <FiZap className="w-3 h-3 text-yellow-400" /> {assistantName}:
               </span>
               <p className="text-sm font-semibold text-white leading-snug">
                 {lastAssistantMessage || "I'm listening. What would you like to do?"}
@@ -259,7 +262,7 @@ export const VoicePopup = () => {
                 ) : (
                   <span className="text-slate-400 italic flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-                    <span>Luna is listening to your mic… Say “Add expense”, “500”, “Food”, or “Open study”</span>
+                    <span>{assistantName} is listening to your mic… Say “Add expense”, “500”, “Food”, or “Open study”</span>
                   </span>
                 )}
               </div>

@@ -30,7 +30,7 @@ const STORAGE_KEYS = {
   ASSISTANT_VOICE: 'tracklytics_assistant_voice',
 };
 
-const DEFAULT_WAKE_WORD = 'MAPLA';
+const DEFAULT_WAKE_WORD = 'LUNA';
 const DEFAULT_INACTIVITY_SEC = 60;
 
 export const VoiceProvider = ({ children }) => {
@@ -44,6 +44,8 @@ export const VoiceProvider = ({ children }) => {
       return DEFAULT_WAKE_WORD;
     }
   });
+
+  const assistantName = wakeWord ? (wakeWord.charAt(0).toUpperCase() + wakeWord.slice(1).toLowerCase()) : 'Luna';
 
   // Wake Word Detection Toggle
   const [wakeWordEnabled, setWakeWordEnabled] = useState(() => {
@@ -193,6 +195,7 @@ export const VoiceProvider = ({ children }) => {
   const value = {
     // Preferences
     wakeWord,
+    assistantName,
     wakeWordEnabled,
     continuousMode,
     inactivityTimeoutSec,

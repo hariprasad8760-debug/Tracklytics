@@ -213,15 +213,18 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
   // ─────────────────────────────────────────────────────────────────────────
   // 4B. MULTI-TURN DIALOG: DELETE EXPENSE FLOW
   // ─────────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // 4B. MULTI-TURN DIALOG: DELETE EXPENSE FLOW
+  // ─────────────────────────────────────────────────────────────────────────
   if (activeFlow && activeFlow.type === 'DELETE_EXPENSE') {
     if (activeFlow.step === 'AWAITING_EXPENSE_TARGET') {
-      const isLast = /\b(last|latest|recent|previous|newest|one)\b/i.test(lower);
+      const isLast = /\b(last|latest|recent|previous|newest|one|last\s*add|last\s*added)\b/i.test(lower);
       const amount = extractAmount(lower);
-      const targetQuery = lower.replace(/\b(the|a|an|expense|for|rupees|rs|dollars|bucks|last|one)\b/gi, '').trim();
+      const targetQuery = lower.replace(/\b(the|a|an|expense|for|rupees|rs|dollars|bucks|last|latest|recent|one|add|added)\b/gi, '').trim();
 
       return {
         type: 'DIALOG_RESPONSE',
-        responseText: isLast ? 'Removing your latest expense.' : `Removing expense for ${targetQuery || 'requested item'}.`,
+        responseText: isLast ? 'Removing your latest expense.' : `Removing expense for ${targetQuery || (amount ? `₹${amount}` : 'requested item')}.`,
         nextFlow: null,
         shouldKeepListening: true,
         actionPayload: {
@@ -238,8 +241,8 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
   // ─────────────────────────────────────────────────────────────────────────
   if (activeFlow && activeFlow.type === 'DELETE_STUDY') {
     if (activeFlow.step === 'AWAITING_STUDY_TARGET') {
-      const isLast = /\b(last|latest|recent|previous|newest|one)\b/i.test(lower);
-      const targetQuery = lower.replace(/\b(the|a|an|study|session|hours?|last|one)\b/gi, '').trim();
+      const isLast = /\b(last|latest|recent|previous|newest|one|last\s*add|last\s*added)\b/i.test(lower);
+      const targetQuery = lower.replace(/\b(the|a|an|study|session|hours?|hrs?|mins?|last|latest|recent|one|add|added)\b/gi, '').trim();
 
       return {
         type: 'DIALOG_RESPONSE',
@@ -336,12 +339,12 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
     };
   }
 
-  // Intent C: "Delete expense" / "Remove expense"
-  if (/\b(delete\s*expense|remove\s*expense|clear\s*expense|erase\s*expense|delete\s*last\s*expense|remove\s*last\s*expense|remove\s*latest\s*expense)\b/i.test(lower)) {
-    const isLast = /\b(last|latest|recent|previous|newest)\b/i.test(lower);
+  // Intent C: "Delete expense" / "Remove expense" / "Cancel expense" / "Remove last add"
+  if (/\b(delete|remove|cancel|clear|erase|drop|discard)\b/i.test(lower) && /\b(expense|expenses|cost|spending|transaction|last\s*add|last\s*added)\b/i.test(lower)) {
+    const isLast = /\b(last|latest|recent|previous|newest|last\s*add|last\s*added)\b/i.test(lower);
     const amount = extractAmount(lower);
     const targetQuery = lower
-      .replace(/\b(delete|remove|clear|erase|expense|last|latest|recent|for|rupees|rs|dollars|bucks|the|a|an)\b/gi, '')
+      .replace(/\b(delete|remove|cancel|clear|erase|drop|discard|expense|expenses|cost|spending|transaction|last|latest|recent|previous|newest|add|added|the|a|an|for|rupees|rs|dollars|bucks)\b/gi, '')
       .replace(/\b\d+(?:\.\d+)?\b/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -351,7 +354,7 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
         type: 'DIALOG_RESPONSE',
         responseText: isLast 
           ? 'Removing your latest expense.' 
-          : `Removing expense for ${targetQuery || amount || 'requested item'}.`,
+          : `Removing expense for ${targetQuery || (amount ? `₹${amount}` : 'requested item')}.`,
         nextFlow: null,
         shouldKeepListening: true,
         actionPayload: {
@@ -364,7 +367,7 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
 
     return {
       type: 'DIALOG_RESPONSE',
-      responseText: "Which expense would you like to remove? You can say the category, amount, or 'last one'.",
+      responseText: "Which expense would you like to remove? You can say the name like ChatGPT, amount, or 'last one'.",
       nextFlow: {
         type: 'DELETE_EXPENSE',
         step: 'AWAITING_EXPENSE_TARGET',
@@ -374,11 +377,11 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
     };
   }
 
-  // Intent D: "Delete study session" / "Remove study"
-  if (/\b(delete\s*study|remove\s*study|clear\s*study|erase\s*study|delete\s*study\s*session|remove\s*study\s*session|delete\s*last\s*study|remove\s*last\s*study|remove\s*latest\s*study)\b/i.test(lower)) {
-    const isLast = /\b(last|latest|recent|previous|newest)\b/i.test(lower);
+  // Intent D: "Delete study session" / "Remove study" / "Cancel study"
+  if (/\b(delete|remove|cancel|clear|erase|drop|discard)\b/i.test(lower) && /\b(study|session|hours|subject)\b/i.test(lower)) {
+    const isLast = /\b(last|latest|recent|previous|newest|last\s*add|last\s*added)\b/i.test(lower);
     const targetSubject = lower
-      .replace(/\b(delete|remove|clear|erase|study|session|last|latest|recent|for|hours?|hrs?|mins?|the|a|an)\b/gi, '')
+      .replace(/\b(delete|remove|cancel|clear|erase|drop|discard|study|session|sessions|hours?|hrs?|mins?|subject|last|latest|recent|previous|newest|add|added|the|a|an|for)\b/gi, '')
       .replace(/\b\d+(?:\.\d+)?\b/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -400,7 +403,7 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
 
     return {
       type: 'DIALOG_RESPONSE',
-      responseText: "Which study session would you like to remove? You can say the subject name or 'last one'.",
+      responseText: "Which study session would you like to remove? You can say the subject name like Spring Boot, or 'last one'.",
       nextFlow: {
         type: 'DELETE_STUDY',
         step: 'AWAITING_STUDY_TARGET',
