@@ -62,6 +62,7 @@ export const StudyPage = () => {
   };
 
   useEffect(() => {
+    realtimeDb.syncWithMySQL();
     syncSessions();
     const handleDbUpdate = () => syncSessions();
     window.addEventListener('tracklytics_db_updated', handleDbUpdate);
@@ -146,7 +147,13 @@ export const StudyPage = () => {
       {/* ---------------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">Study Tracker & Focus Timer</h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-3xl font-extrabold text-white tracking-tight">Study Tracker & Focus Timer</h2>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              MySQL: tracklytics_db
+            </span>
+          </div>
           <p className="text-xs text-slate-400 mt-1">Track subjects, log focus sessions, and run Pomodoro timers</p>
         </div>
 

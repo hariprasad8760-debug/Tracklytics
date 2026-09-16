@@ -56,6 +56,7 @@ export const DashboardPage = () => {
   };
 
   useEffect(() => {
+    realtimeDb.syncWithMySQL();
     refreshData();
     const handleDbUpdate = () => refreshData();
     window.addEventListener('tracklytics_db_updated', handleDbUpdate);

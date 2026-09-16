@@ -34,15 +34,15 @@ set "MAVEN_CMD=mvn"
 
 mvn -version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    if exist "%~dp0backend\mvnw.cmd" (
+    if exist "C:\Users\harip\maven\bin\mvn.cmd" (
+        echo [INFO] Using installed Maven at C:\Users\harip\maven\bin\mvn.cmd...
+        set "MAVEN_CMD=C:\Users\harip\maven\bin\mvn.cmd"
+    ) else if exist "%~dp0backend\mvnw.cmd" (
         echo [INFO] System 'mvn' not in PATH. Using local Maven Wrapper...
         set "MAVEN_CMD=%~dp0backend\mvnw.cmd"
     ) else if exist "C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.2\nbcode\java\maven\bin\mvn.cmd" (
         echo [INFO] Using detected Maven binary...
         set "MAVEN_CMD=C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.2\nbcode\java\maven\bin\mvn.cmd"
-    ) else if exist "C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.0\nbcode\java\maven\bin\mvn.cmd" (
-        echo [INFO] Using detected Maven binary...
-        set "MAVEN_CMD=C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.0\nbcode\java\maven\bin\mvn.cmd"
     ) else (
         echo [ERROR] Apache Maven ('mvn') is not found in system PATH!
         echo Please install Apache Maven or configure M2_HOME/PATH environment variables.

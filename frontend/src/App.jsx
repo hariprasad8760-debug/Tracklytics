@@ -17,7 +17,7 @@
  * ============================================================================
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { SidebarProvider } from './context/SidebarContext';
 import { VoiceProvider } from './context/VoiceContext';
@@ -25,8 +25,27 @@ import { UserProfileProvider } from './context/UserProfileContext';
 import AppRoutes from './routes/AppRoutes';
 import VoiceOrchestrator from './components/voice/VoiceOrchestrator';
 import VoicePopup from './components/voice/VoicePopup';
+import realtimeDb from './services/realtimeDbService';
 
 export function App() {
+  useEffect(() => {
+    // Initial sync with MySQL backend
+    realtimeDb.syncWithMySQL();
+
+    // Re-sync on tab focus or online
+    const handleSync = () => realtimeDb.syncWithMySQL();
+    window.addEventListener('focus', handleSync);
+    window.addEventListener('online', handleSync);
+
+    const interval = setInterval(handleSync, 30000); // Poll every 30s in background
+
+    return () => {
+      window.removeEventListener('focus', handleSync);
+      window.removeEventListener('online', handleSync);
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <UserProfileProvider>

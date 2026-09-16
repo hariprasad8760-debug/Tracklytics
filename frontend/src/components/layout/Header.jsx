@@ -18,6 +18,7 @@ import { useSidebar } from '../../context/SidebarContext';
 import { useVoice } from '../../context/VoiceContext';
 import { useUserProfile } from '../../context/UserProfileContext';
 import { ProfileDropdown } from './ProfileDropdown';
+import MysqlDatabaseModal from '../database/MysqlDatabaseModal';
 import {
   FiMenu,
   FiSearch,
@@ -27,7 +28,8 @@ import {
   FiMic,
   FiMicOff,
   FiChevronDown,
-  FiAward
+  FiAward,
+  FiDatabase
 } from 'react-icons/fi';
 import GlassButton from '../common/GlassButton';
 
@@ -35,6 +37,7 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
   const { toggleMobile } = useSidebar();
   const { profile, statusOptions } = useUserProfile();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
 
   const {
     isVoiceModeActive,
@@ -85,6 +88,15 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                 <FiZap className="w-2.5 h-2.5 mr-1 text-purple-400" /> Live AI
               </span>
+              <button
+                onClick={() => setIsDbModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer shadow-sm shadow-emerald-950/40 group"
+                title="View original MySQL Database (tracklytics_db) tables and live records"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <FiDatabase className="w-3 h-3 text-emerald-400 group-hover:scale-110 transition-transform" />
+                <span>MySQL: tracklytics_db</span>
+              </button>
             </h1>
           </div>
         </div>
@@ -218,6 +230,9 @@ export const Header = ({ pageTitle = 'Dashboard' }) => {
           </div>
         </div>
       </div>
+
+      {/* Live MySQL Database Explorer Modal */}
+      <MysqlDatabaseModal isOpen={isDbModalOpen} onClose={() => setIsDbModalOpen(false)} />
     </header>
   );
 };

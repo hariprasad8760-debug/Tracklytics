@@ -30,6 +30,18 @@ export const apiClient = {
       body: JSON.stringify(data),
     });
     return res.json();
+  },
+
+  delete: async (endpoint) => {
+    const token = localStorage.getItem('tracklytics_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers,
+    });
+    return res.json();
   }
 };
 

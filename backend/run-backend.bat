@@ -3,11 +3,11 @@ title Tracklytics Spring Boot Backend Server
 
 echo ========================================================================
 echo  SPRING BOOT BACKEND LAUNCHER
-echo  PATH: C:\Users\harip\OneDrive\Desktop\Tracklytics\backend\run-backend.bat
+echo  PATH: %~dp0
 echo ========================================================================
 echo.
 
-cd /d "C:\Users\harip\OneDrive\Desktop\Tracklytics\backend"
+cd /d "%~dp0"
 
 echo [1/3] Checking Java environment...
 java -version
@@ -25,20 +25,20 @@ if not errorlevel 1 (
     goto MAVEN_FOUND
 )
 
-if exist "C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.1\nbcode\java\maven\bin\mvn.cmd" (
-    set MAVEN_CMD=C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.1\nbcode\java\maven\bin\mvn.cmd
+if exist "C:\Users\harip\maven\bin\mvn.cmd" (
+    set MAVEN_CMD=C:\Users\harip\maven\bin\mvn.cmd
+    echo [INFO] Using installed Maven at C:\Users\harip\maven\bin\mvn.cmd...
+    goto MAVEN_FOUND
+)
+
+if exist "C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.2\nbcode\java\maven\bin\mvn.cmd" (
+    set MAVEN_CMD=C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.2\nbcode\java\maven\bin\mvn.cmd
     echo [INFO] Using VS Code Oracle extension Maven...
     goto MAVEN_FOUND
 )
 
-if exist "C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.0\nbcode\java\maven\bin\mvn.cmd" (
-    set MAVEN_CMD=C:\Users\harip\.vscode\extensions\oracle.oracle-java-26.0.0\nbcode\java\maven\bin\mvn.cmd
-    echo [INFO] Using VS Code Oracle extension Maven (26.0.0)...
-    goto MAVEN_FOUND
-)
-
-if exist "C:\Users\harip\OneDrive\Desktop\Tracklytics\backend\mvnw.cmd" (
-    set MAVEN_CMD=C:\Users\harip\OneDrive\Desktop\Tracklytics\backend\mvnw.cmd
+if exist "%~dp0mvnw.cmd" (
+    set MAVEN_CMD=%~dp0mvnw.cmd
     echo [INFO] Using Maven Wrapper...
     goto MAVEN_FOUND
 )

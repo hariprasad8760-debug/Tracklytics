@@ -362,8 +362,10 @@ export const useVoiceAssistant = () => {
       const rec = new SpeechRecognitionAPI();
       rec.continuous = true;
       rec.interimResults = true;
-      rec.maxAlternatives = 1;
-      rec.lang = 'en-IN'; // Indian English — better for Indian accents
+      rec.maxAlternatives = 3;
+      rec.lang = (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('en'))
+        ? navigator.language
+        : 'en-US';
 
       rec.onstart = () => setMicPermission('granted');
 
@@ -380,8 +382,8 @@ export const useVoiceAssistant = () => {
 
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         if (cleanText) {
-          // If browser finalized sentence, execute in 250ms; if interim silence, execute in 700ms
-          const delay = isFinal ? 250 : 700;
+          // If browser finalized sentence, execute in 300ms; if interim silence, execute in 750ms
+          const delay = isFinal ? 300 : 750;
           silenceTimerRef.current = setTimeout(() => {
             if (isVoiceModeActiveRef.current && cleanText) {
               processTurn(cleanText);
@@ -422,7 +424,9 @@ export const useVoiceAssistant = () => {
         rec.continuous = true;
         rec.interimResults = true;
         rec.maxAlternatives = 5;
-        rec.lang = 'en-IN';
+        rec.lang = (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('en'))
+          ? navigator.language
+          : 'en-US';
 
         rec.onstart = () => {
           setMicPermission('granted');
@@ -503,7 +507,13 @@ export const useVoiceAssistant = () => {
     if (!navigator.mediaDevices?.getUserMedia) return;
 
     micInitDoneRef.current = true;
-    navigator.mediaDevices.getUserMedia({ audio: true })
+    navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    })
       .then((stream) => {
         stream.getTracks().forEach(t => t.stop());
         setMicPermission('granted');

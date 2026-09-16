@@ -30,13 +30,52 @@ const AFFIRM_PATTERNS = [
   /\b(yes|yeah|yep|yup|i['’]?m\s*here|i\s*am\s*here|still\s*here|continue|keep\s*listening|go\s*ahead|sure)\b/i,
 ];
 
+// Map spoken words to numeric values for Chrome STT
+const WORD_TO_NUMBER = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  hundred: 100, thousand: 1000, lakh: 100000,
+};
+
+function parseSpokenWordsToNumber(text) {
+  if (!text) return null;
+  const words = text.toLowerCase().split(/[\s-]+/);
+  let total = 0;
+  let current = 0;
+  let found = false;
+
+  for (const word of words) {
+    if (WORD_TO_NUMBER[word] !== undefined) {
+      found = true;
+      const val = WORD_TO_NUMBER[word];
+      if (val === 100) {
+        current = (current === 0 ? 1 : current) * 100;
+      } else if (val === 1000 || val === 100000) {
+        current = (current === 0 ? 1 : current) * val;
+        total += current;
+        current = 0;
+      } else {
+        current += val;
+      }
+    }
+  }
+  total += current;
+  return found ? total : null;
+}
+
 // Helper to extract numbers / currency amounts from speech
 function extractAmount(text) {
   if (!text) return null;
-  // Match "$500", "500 dollars", "500", "50.50", "₹500", "500 rupees"
-  const match = text.match(/(?:[\$₹£€]?\s*)(\d+(?:\.\d{1,2})?)(?:\s*(?:dollars|bucks|rupees|rs|usd))?/i);
+  // Direct digit match: "$500", "500", "50.50", "₹500", "500 rupees"
+  const match = text.match(/(?:[\$₹£€]?\s*)(\d+(?:\.\d{1,2})?)(?:\s*(?:dollars|bucks|rupees|rs|usd|inr))?/i);
   if (match && match[1]) {
     return parseFloat(match[1]);
+  }
+  // Try parsing spoken number words ("five hundred", "fifty", etc.)
+  const spokenNum = parseSpokenWordsToNumber(text);
+  if (spokenNum !== null && spokenNum > 0) {
+    return spokenNum;
   }
   return null;
 }
@@ -47,17 +86,37 @@ function extractDuration(text) {
   const hourMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:hours|hour|hrs|hr)/i);
   const minMatch = text.match(/(\d+)\s*(?:minutes|minute|mins|min)/i);
 
-  if (hourMatch) {
-    return `${hourMatch[1]} hours`;
+  if (hourMatch) return `${hourMatch[1]} hours`;
+  if (minMatch) return `${minMatch[1]} mins`;
+
+  // Spoken words: "two hours", "half an hour", "one hour"
+  if (/\bhalf\s*an?\s*hour\b/i.test(text)) return '30 mins';
+  if (/\ban?\s*hour\b/i.test(text)) return '1 hour';
+  const spokenNum = parseSpokenWordsToNumber(text);
+  if (spokenNum && /\b(hours?|hrs?)\b/i.test(text)) {
+    return `${spokenNum} hours`;
   }
-  if (minMatch) {
-    return `${minMatch[1]} mins`;
+  if (spokenNum && /\b(minutes?|mins?)\b/i.test(text)) {
+    return `${spokenNum} mins`;
   }
+
   const numOnly = text.match(/(\d+)/);
   if (numOnly) {
     return `${numOnly[1]} hours`;
   }
   return null;
+}
+
+// Normalizes common Google Chrome Web Speech API recognition errors
+function normalizeChromeSpeech(text) {
+  if (!text) return '';
+  return text
+    .replace(/\b(and|ad|had|at|add)\s+(expense|expand|expander|eggs\s*pants)\b/gi, 'add expense')
+    .replace(/\b(the\s*lead|the\s*late|del)\s+expense\b/gi, 'delete expense')
+    .replace(/\b(lock|long|look|logged|like)\s+study\b/gi, 'log study')
+    .replace(/\bspring\s+(board|boat|books|book)\b/gi, 'Spring Boot')
+    .replace(/\breact\s+(gs|jay\s*s|yes)\b/gi, 'React JS')
+    .replace(/\bmy\s*sql\b/gi, 'MySQL');
 }
 
 /**
@@ -84,13 +143,14 @@ export function evaluateConversationTurn(rawTranscript, activeFlow = null, wakeW
     };
   }
 
-  // Clean transcript
+  // Clean transcript and normalize Chrome STT quirks
   let clean = rawTranscript
     .replace(new RegExp(`\\b${wakeWord}\\b`, 'gi'), '')
     .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
+  clean = normalizeChromeSpeech(clean);
   const lower = clean.toLowerCase();
 
   // ─────────────────────────────────────────────────────────────────────────

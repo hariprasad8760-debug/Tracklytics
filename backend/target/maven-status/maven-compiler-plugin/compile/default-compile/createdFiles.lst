@@ -1,3 +1,4 @@
+com\tracklytics\controller\StudySessionController.class
 com\tracklytics\entity\ExpenseCategory$ExpenseCategoryBuilder.class
 com\tracklytics\service\impl\AuthServiceImpl.class
 com\tracklytics\entity\StudySession$StudySessionBuilder.class
@@ -21,6 +22,7 @@ com\tracklytics\security\CustomUserDetailsService.class
 com\tracklytics\entity\StudyGoal$StudyGoalBuilder.class
 com\tracklytics\entity\ExpenseCategory.class
 com\tracklytics\entity\User.class
+com\tracklytics\controller\DatabaseController.class
 com\tracklytics\entity\User$UserBuilder.class
 com\tracklytics\dto\DashboardSummaryDto$DashboardSummaryDtoBuilder.class
 com\tracklytics\dto\DashboardSummaryDto.class
@@ -50,6 +52,7 @@ com\tracklytics\exception\GlobalExceptionHandler.class
 com\tracklytics\request\RegisterRequest.class
 com\tracklytics\entity\StudySubject.class
 com\tracklytics\repository\StudySubjectRepository.class
+com\tracklytics\controller\ExpenseController.class
 com\tracklytics\security\JwtAuthenticationFilter.class
 com\tracklytics\repository\UserRepository.class
 com\tracklytics\security\SecurityConfig.class
